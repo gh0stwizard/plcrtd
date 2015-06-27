@@ -15,14 +15,18 @@
   <script type="text/javascript" src="/js/crossroads.min.js"></script>
   <script type="text/javascript" src="/js/hasher.min.js"></script>
 <style type="text/css">
-  html, body, button {
+  html, body, button, p, input, select {
     font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
     font-size: 1.0em;
   }
+  
+  textarea {
+    font-family: "Lucida Console", Monaco, monospace;
+    font-size: 1.0em;
+    border: 0;
+  }
 
-  /*
-   * http://css3buttongenerator.com
-   */
+  /*  http://css3buttongenerator.com  */
 
   .btn {
     color: #ffffff;
@@ -35,8 +39,15 @@
   .btn:hover {
     background: #339955;
   }
+  
+  /* http://stackoverflow.com/questions/3759692/css-selector-for-disabled-input-type-submit */
+  
+  input[type=submit]:disabled.btn,
+  button:disabled.btn {
+    background: #993355;
+  }
 
-  /* Error message */
+  /*  Error message  */
 
   .errorBox p {
     text-align: center;
@@ -52,7 +63,7 @@
     max-width: 1024px;
   }
 
-  /* Header */
+  /*  Header  */
 
   .header button {
     margin-left: 18px;
@@ -64,13 +75,62 @@
     vertical-align: middle;
   }
 
-  /* About */
+  /*  Pages  */
+
+  .aboutPage,
+  .caPage {
+    padding-top: 22px;
+  }
+
+  /*  About  */
 
   .aboutPage {
     padding-left: 10px;
-    padding-top: 15px;
   }
-
+  
+  /* Text data container */
+  
+  .boxContainer {
+    display: flex;
+  }
+  
+  .boxOutput {
+    border: 1px solid black;
+  }
+  
+  .boxButtonsContainer {
+    display: inline;
+    padding-top: 16px;
+    padding-left: 12px;
+  }  
+  .boxButtonsContainer button {
+    margin: 12px 0;
+    width: 120px;
+  }
+  
+  .boxSetup {
+    padding-top: 5px;
+    padding-bottom: 15px;
+  }  
+  .boxSetup p {
+    display: inline;
+    padding-right: 12px;
+    color: #039;
+  }
+  .boxSetup select {
+    border: 1px solid #029;
+  }
+  .boxSetup input {
+    border: 0;
+    border-bottom: 1px solid #029;
+  }
+  
+  /*  Footer  */
+  
+  .footer {
+    padding-top: 15px;
+    padding-bottom: 15px;
+  }
 
 </style>
 </head>
@@ -89,9 +149,11 @@
   </div>
 
   <!-- Error message box //-->
-  <div class="errorBox" data-bind="with: errorMessage">
-    <p><span data-bind="text: $data"></span></p>
+  <div class="errorBox" data-bind="visible: errorMessage()">
+    <p><span data-bind="text: errorMessage"></span></p>
+    <pre><span data-bind="text: errorDescription"></span></pre>
   </div>
+  
 
   <!-- About page //-->
   <div class="aboutPage" data-bind="visible: onAbout()">
@@ -122,9 +184,49 @@
          title="plcrtd on GitHub">here</a>.</p>
   </div>
   
-  <!-- CA Page //-->
+  <!-- Certificate Authority Page //-->
   <div class="caPage" data-bind="visible: onCA()">
-    <h1>CA - not implemented yet</h1>
+    <h3>Certificate Authority key</h3>
+    <div class="boxSetup">
+      <p>Password
+      <input size="32" data-bind="value: inPassword" /></p>
+      <p>Bits
+      <select data-bind="options: [ 2048, 4096 ], value: inBits"></select></p>
+    </div>
+    <div class="boxContainer">
+      <div class="boxOutput">
+        <textarea rows="10" cols="66" data-bind="value: outCAkey"></textarea>
+      </div>
+      <div class="boxButtonsContainer">
+        <button class="btn"
+                data-bind="click: genCAkey, enable: genCAkeyReady()">Get!</button>
+        <br />
+        <button class="btn"
+          data-bind="click: save.bind( $data, 'ca.key', $root.outCAkey() ),
+                     visible: outCAkey() && browserCheck(),
+                     clickBubble: false">Save</button>
+      </div>
+    </div>
+    <h3>Certificate Authority certificate</h3>
+    <p>Please, provide the same password above as you've used for key generation.</p>
+    <div class="boxSetup">
+      <p>Subject
+      <input size="42" class="subj" data-bind="value: inSubject" /></p>
+      <p>Days
+      <input size="4" data-bind="value: inDays" /></p>
+    </div>
+    <div class="boxContainer">
+      <div class="boxOutput">
+        <textarea rows="10" cols="66" data-bind="value: outCAcrt"></textarea>
+      </div>
+      <div class="boxButtonsContainer">
+        <button class="btn" data-bind="click: genCAcrt, enable: genCAcrtReady()">Get!</button>
+        <br />
+        <button class="btn"
+          data-bind="click: save.bind( $data, 'ca.crt', $root.outCAcrt() ),
+                     visible: outCAcrt() && browserCheck()">Save</button>
+      </div>
+    </div>
   </div>
 
   <!-- Client Page //-->
@@ -136,17 +238,29 @@
   <div class="pkcsPage" data-bind="visible: onPKCS()">
     <h1>PKCS - not implemented yet</h1>
   </div>
+  
+  <div class="footer"></div>
 
 </div>
 <script>
   var suffix = '/plcrtd',
-      ra = window.location.protocol + '//' + window.location.host + suffix + '?',
+      addr = window.location.protocol + '//' + window.location.host
+      ra = addr + suffix + '?',
       errors = [
         'Connection error',
         'Bad request',
         'Not implemented',
         'Internal error'
       ];
+
+  /* http://stackoverflow.com/questions/5999998/how-can-i-check-if-a-javascript-variable-is-function-type */
+
+  function isFunction ( functionToCheck ) {
+    var getType = {};
+    return functionToCheck 
+        && getType.toString.call(functionToCheck) === '[object Function]';
+  }
+  
 
   function AppViewModel() {
     var self = this;
@@ -155,6 +269,7 @@
 
     self.onAJAX = ko.observable();
     self.errorMessage = ko.observable();
+    self.errorDescription = ko.observable();
 
     /*  Data: this app  */
 
@@ -162,25 +277,144 @@
     self.onCA = ko.observable();
     self.onClient = ko.observable();
     self.onPKCS = ko.observable();
+
+    self.inPassword = ko.observable();
+    self.inBits = ko.observable();
+    self.inDays = ko.observable();
+    self.inSubject = ko.observable();
+
+    self.outCAkey = ko.observable();
+    self.genCAkeyReady = ko.observable();
+
+    self.outCAcrt = ko.observable();
+    self.genCAcrtReady = ko.observable();
+
+    self.browserCheck = ko.computed( function () {
+      var version = parseFloat( navigator.appVersion );
+
+      /* TODO mobile support ? */
+
+      return ( navigator.userAgent.indexOf( "Firefox" ) != -1 
+            && version > 20 )
+          || ( navigator.userAgent.indexOf( "SeaMonkey" ) != -1 
+            && version > 2.0 )
+          || ( navigator.userAgent.indexOf( "Chrome" ) != -1
+            && version > 14 )
+          || ( navigator.userAgent.indexOf( "Firefox" ) != -1
+            && version > 15 );
+    } );
     
 
     /*  Behaviours  */
 
-    self.About = function () { location.hash = ''; }
-    self.CA = function () { location.hash = 'ca'; }
+    self.About  = function () { location.hash = '';       }
+    self.CA     = function () { location.hash = 'ca';     }
     self.Client = function () { location.hash = 'client'; }
-    self.PKCS = function () { location.hash = 'pkcs'; }
+    self.PKCS   = function () { location.hash = 'pkcs';   }
 
+    /*  http://caniuse.com/download  */
+
+    self.save = function ( filename, text ) {
+      var pom = document.createElement( 'a' );
+      pom.setAttribute( 'href',
+        'data:text/plain;charset=utf-8,' + encodeURIComponent(text) );
+      pom.setAttribute( 'download', filename );
+
+      if ( document.createEvent ) {
+        var event = document.createEvent( 'MouseEvents' );
+        event.initEvent( 'click', true, true );
+        pom.dispatchEvent( event );
+      } else {
+        pom.click();
+      }
+    }
+
+    self.genCAkey = function ( cb ) {
+      self.outCAkey( null );
+      self.outCAcrt( null );
+      clearError();
+      
+      self.genCAkeyReady( false );
+
+      var pass = self.inPassword(),
+          bits = self.inBits();
+      
+      postJSON( addr + suffix,
+        { 
+          action: 'genCAkey',
+          pass: pass,
+          bits: bits
+        },
+        function ( response ) {
+          if ( response.key ) {
+            self.outCAkey( response.key );
+            isFunction( cb ) ? cb() : "";
+          } else {
+            self.errorMessage( errors[ response.err ] );
+            self.errorDescription( response.msg );
+          }
+          
+          self.genCAkeyReady( true );
+        }
+      );
+    }
+    
+    self.genCAcrt = function () {
+      self.outCAcrt( null );
+      clearError();
+      
+      self.genCAcrtReady( false );
+    
+      var cb = function () {
+        var pass = self.inPassword(),
+            days = self.inDays(),
+            subj = self.inSubject(),
+            key = self.outCAkey();
+
+        postJSON( addr + suffix,
+          {
+            action: 'genCAcrt',
+            pass: pass,
+            key: key,
+            days: days,
+            subj: subj
+          },
+          function ( response ) {
+            if ( response.crt ) {
+              self.outCAcrt( response.crt );
+            } else {
+              self.errorMessage( errors[ response.err ] );
+              self.errorDescription( response.msg );
+            }
+            
+            self.genCAcrtReady( true );
+          }
+        );
+      }
+
+      if ( ! self.outCAkey() ) {
+        self.genCAkey( cb );
+      } else {
+        cb();
+      }
+    }
 
     /*  Formaters  */
 
     /*  Helpers  */
     
     function cleanAll () {
+      clearError();
+    
       self.onAbout( false );
       self.onCA( false );
       self.onClient( false );
       self.onPKCS( false );
+    }
+    
+    function clearError () {
+      self.errorMessage( null );
+      self.errorDescription( null );
     }
     
     function plusRequest() {
@@ -217,7 +451,7 @@
       $.ajax( {
         type: 'POST',
         url: url,
-        data: data,
+        data: payload,
         dataType: 'json',
         success: cb,
         error: function ( xhr, type, error ) {
@@ -248,7 +482,14 @@
     
     function caPage () {
       cleanAll();
-      self.onCA( true );
+      self.onCA( true );      
+      self.inPassword() ? "" : self.inPassword( 'test' );
+      self.inDays() ? "" : self.inDays( 365 );
+      self.inSubject()
+        ? "" 
+        : self.inSubject( '/C=US/ST=Texas/O=gh0stwizard/CN=plcrtd' );
+      self.genCAkeyReady( true );
+      self.genCAcrtReady( true );
     }
     
     function clientPage () {

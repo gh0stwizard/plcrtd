@@ -19,10 +19,10 @@ use strict;
 use warnings;
 use common::sense;
 use AnyEvent;
+use AnyEvent::Util;
 use HTTP::Body ();
 use JSON::XS qw( encode_json decode_json );
 use Scalar::Util ();
-use File::Spec::Functions qw( catfile );
 use HTML::Entities ();
 use Encode qw( decode_utf8 );
 use vars qw( $PROGRAM_NAME );
@@ -71,11 +71,6 @@ sub app {
     my $type = $env->{ 'CONTENT_TYPE' };
     my $len = $env->{ 'CONTENT_LENGTH' };
     my $req = delete $env->{ 'psgi.input' };
-    
-    AE::log trace => "POST request: type = %s, length = %d",
-      $type,
-      $len
-    ;
 
     &do_post( $R, $req, $len, $type );
 
@@ -137,14 +132,98 @@ sub do_post($$$$) {
   my $R = shift;
   my $params = &get_params( @_ )
     or &send_error( $R, &BAD_REQUEST() ), return;
-
-  AE::log trace => " %s => %s", $_, $params->{ $_ } for keys %$params;
   
-  &send_error( $R, &NOT_IMPLEMENTED() );
+  my $action = $params->{ 'action' } || '';
+  
+  if ( $action eq 'genCAkey' ) {
+    my $pass = $params->{ 'pass' } || '';
+    my $bits = int( $params->{ 'bits' } || 0 );
+    
+    my $pw_len = length( $pass );
+
+    # Check for a length of $pass was added because of
+    # running the command below by a hand does this check.
+    #
+    # No need to call fork() for obvious result.
+
+    if ( $pw_len >= 4 && $pw_len < 8192 && $bits >= 1024 ) {
+      my $cv = run_cmd [
+        qw( openssl genrsa -des3 -passout fd:3 -out /dev/fd/4 ),
+        $bits
+      ],
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$pass,
+        "4>", \my $key,
+      ;
+      
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+      
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_JSON );
+          $w->write( encode_json( { key => $key } ) );
+          $w->close();
+        } else {
+          AE::log error => "genCAkey:\n$stderr";
+          &send_error( $R, &EINT_ERROR(), $stderr );
+        }        
+      } );
+
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
+
+  } elsif ( $action eq 'genCAcrt' ) {
+    my $key = $params->{ 'key' } || '';
+    my $pass = $params->{ 'pass' } || '';
+    my $days = int( $params->{ 'days' } || 0 );
+    my $subj = $params->{ 'subj'} || '';
+    
+    my $pw_len = length( $pass );
+    
+    if ( $key ne '' && $subj ne ''
+      && $pw_len >= 4 && $pw_len < 8192
+      && $days > 0 )
+    {
+      my $cv = run_cmd [
+        qw( openssl req -batch -new -x509 -days ), $days,
+        qw( -key /dev/fd/3 -out /dev/fd/4 -passin fd:5 -subj ),
+        $subj
+      ],
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$key,
+        "4>", \my $crt,
+        "5<", \$pass,
+      ;
+
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+      
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_JSON );
+          $w->write( encode_json( { key => $key, crt => $crt } ) );
+          $w->close();
+        } else {
+          &send_error( $R, &EINT_ERROR(), $stderr );
+        }
+      } );
+
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
+    
+  } else {
+    # wrong input
+    &send_error( $R, &NOT_IMPLEMENTED() );
+  }
 }
 
 
-=item B<send_error>( $feersum, $error_code )
+=item B<send_error>( $feersum, $error_code, [ $msg ] )
 
 Sends a response with an error code $error_code.
 
@@ -173,12 +252,14 @@ Some sort of an internal error has occurs on a server side.
 =cut
 
 
-sub send_error($$) {
-  my ( $R, $code ) = @_;
+sub send_error($$;$) {
+  my ( $R, $code, $msg ) = @_;
   
+  my %data = ( err => $code );
+  $data{ 'msg' } = decode_utf8( $msg ) if ( $msg );
   
   my $w = $R->start_streaming( 200, \@HEADER_JSON );
-  $w->write( encode_json( { err => $code } ) );
+  $w->write( encode_json( \%data ) );
   $w->close();
   
   return;

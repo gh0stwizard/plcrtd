@@ -1,6 +1,6 @@
 # plcrtd #
 
-plcrtd - Perl Certificates Daemon, an HTTP application OpenSSL CA manager 
+plcrtd - Perl OpenSSL Certificate Manager Daemon, an HTTP application
 written in [Perl](http://www.perl.org).
 
 # Why? #
@@ -24,8 +24,6 @@ via CPAN or other Perl package management system:
 * File::Spec
 * Getopt::Long
 * Sys::Syslog (optional)
-* IO::FDPass
-* Proc::FastSpawn
 
 # Usage #
 
@@ -38,20 +36,15 @@ The program is splitted in three major parts:
 To start the program type in console:
 
 ```
-shell> PERL5LIB=src/modules perl src/main.pl
+shell> perl src/main.pl
 ```
-
-The <code>PERL5LIB</code> environment variable is required and 
-says Perl where is the additional modules are placed. So, 
-you have not to copy (install) modules by a hand to start 
-a program.
 
 By default the server is listening on the address <code>127.0.0.1:28980</code>.
 To run the listener on all interfaces and addresses you have to run
 the server as described below:
 
 ```
-shell> PERL5LIB=src/modules perl src/main.pl --listen 0.0.0.0:28980
+shell> perl src/main.pl --listen 0.0.0.0:28980
 ```
 
 # Options #
@@ -60,38 +53,65 @@ Use the option **--help** to see all available options:
 
 ```
 shell> perl src/main.pl --help
+Allowed options:
+  --help [-h]              prints this information
+  --version                prints program version
 
-TBA
+Web server options:
+  --listen [-l] arg        IP:PORT for listener
+                           - default: "127.0.0.1:28980"
+  --background [-B]        run process in background (disables logging)
+                           - default: runs in foreground
+Security options:
+  --home [-H] arg          working directory after fork
+                           - default: root directory
+Logging options:
+  --debug                  be verbose
+  --verbose                be very verbose
+  --quiet [-q]             disables logging totally
+  --enable-syslog          enable logging via syslog
+  --syslog-facility arg    syslog's facility (default is LOG_DAEMON)
+  --logfile [-L] arg       path to log file (default is stdout)
 
+Miscellaneous options:
+  --pidfile [-P] arg       path to pid file (default: none)
+  --backend [-b] arg       backend name (default: feersum)
+  --app [-a] arg           application name (default: feersum)
 ```
-
 
 # Usage with nginx #
 
-The server is able to work together with [nginx](http://nginx.org).
+The server was created to working together with [nginx](http://nginx.org).
 The sample configuration file for nginx is placed in 
 <code>conf/nginx/plcrtd.conf</code>.
 
-Using plwrd together with nginx is a good idea, because nginx is intended 
-to cache static files.
+# Security #
+
+You have to install HTTPS server, e.g. nginx, and set up it as a frontend
+for this application. Because of the Feersum module, 
+the embeded HTTP server, does not working with HTTPS.
+
+Due the limitation above you are unable to use **plcrtd** without
+HTTP(S) frontend server, sorry.
 
 # API #
 
 ## Introduction ##
 
-A server side works together with a frontend side via AJaX requests.
-Requests are splitted into two groups: GET and POST. The GET requests
-are using mostly to retrieving a data from the server. Meantime the
-POST requests are using to storing a data on the server.
+A server side works together with a client side via AJaX requests.
+Currently the server side accepts only POST requests.
 
 All types of requests are using JSON encoding.
 
 ## How to catch an error ##
 
 When an error occurs on the server side, the server will response with
-a hash object. In that case _all_ types of requests returns 
-the hash object with only one key <code>err</code>.
+a hash object. In that case _all_ types of requests returns
+the hash object with key <code>err</code> always.
 The value for the key is a number with an error code.
+
+Some types of requests also produces <code>msg</code> key
+with error description.
 
 Currently, the server is using next error codes:
 
@@ -100,30 +120,30 @@ Currently, the server is using next error codes:
 * <code>2</code> - Not implemented
 * <code>3</code> - Internal error
 
-
-## GET requests ##
-
-Currently, all GET requests are using the next semantic:
-
-```
-?action=ACTION&name=NAME
-```
-
-where is ACTION means a command to execute on the server,
-and NAME is additional argument. Some actions runs without
-the NAME parameter.
-
-A list of actions and their descriptions:
-
-TBA
-
 ## POST requests ##
 
-The POST requests are working like the GET requests. They are
-also using parameters ACTION and NAME like shows above. In an
-addition POST requests may have other parameters, all of them
-are described below.
-
 A list of actions and their descriptions:
 
-TBA
+* genCAkey
+* genCAcrt
+
+### genCAkey ###
+
+Generates key. The method accepts next arguments:
+
+* <code>action</code> = genCAkey
+* <code>pass</code> - password for a key
+* <code>bits</code> - number of bits
+
+Returns a hash object with key <code>key</code>.
+
+### genCAcrt ###
+
+Generates CA certificate. The method accepts next arguments:
+
+* <code>action</code> = genCAcrt
+* <code>key</code> - pre-generated key
+* <code>pass</code> - password for the key
+* <code>days</code> - a number of days
+* <code>subj</code> - subject, e.g. '/C=US/ST=Texas/O=gh0stwizard/CN=plcrtd'
+

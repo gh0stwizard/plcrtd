@@ -32,7 +32,6 @@ my $retval = GetOptions
   'listen|l=s',         # listen on IP:PORT
   'backend|b=s',        # backend: feersum
   'app|a=s',            # application file
-  'www-dir|W=s',        # www directory
 );
 
 # sets  $\ = "\n"
@@ -219,8 +218,6 @@ sub set_abs_paths() {
     logfile
     home
     pidfile
-    www-dir
-    chroot-dir
   );
 
   for my $option ( @pathopts ) {
@@ -269,12 +266,6 @@ sub set_env() {
     'pidfile'     => join( '_', $prefix, 'PIDFILE' ),
     'listen'      => join( '_', $prefix, 'LISTEN' ),
     'app'	        => join( '_', $prefix, 'APP_NAME' ),
-    'www-dir'     => join( '_', $prefix, 'WWW_DIR' ),
-    'max-proc'	  => join( '_', $prefix, 'MAXPROC' ),
-    'max-load'    => join( '_', $prefix, 'MAXLOAD' ),
-    'max-idle'    => join( '_', $prefix, 'MAXIDLE' ),
-    'chroot-dir'  => join( '_', $prefix, 'CHROOT' ),
-    'euid'				=> join( '_', $prefix, 'EUID' ),
     'logfile'			=> join( '_', $prefix, 'LOGFILE' ),
   );
 
@@ -369,9 +360,6 @@ sub print_help() {
   printf $h, "", "- default: \"127.0.0.1:28980\"";  
   printf $h, "--background [-B]", "run process in background (disables logging)";
   printf $h, "", "- default: runs in foreground";
-  printf $h, "--www-dir [-W] arg", "www directory with file index.html";
-  printf $h, "", "- default is ../www";
-  printf $h, "", "- useful when the program is running standalone";
   
   print "Security options:";
   
@@ -450,15 +438,6 @@ is running in foreground mode.
 If you are enable this option you have to find out useful
 --B<logfile>, --B<enable-syslog> options because of
 without them the logger is disabled.
-
-=item --B<www-dir>, -B<W> = I</path/to/www>
-
-The path to www directory containing index.html file.
-This option is useful only when the daemon is running
-in the standalone mode, e.g. without a proxy server,
-for instance, nginx.
-
-Default is ../www.
 
 =back
 
