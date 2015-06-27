@@ -1,0 +1,3 @@
+*.db
+*.db_unqlite_journal
+misc/bin/*

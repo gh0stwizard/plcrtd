@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="The plcrtd project: OpenSSL Certificate Manager">
+  <meta name="keywords" content="perl, knockout, openssl, ca, pkcs, generator, online">
+  <meta name="author" content="gh0stwizard">
+  <meta charset="utf-8">
+  <title>plcrtd &part; OpenSSL Certificate Manager &forall;</title>
+  <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
+  <script type="text/javascript" src="/js/knockout-3.3.0.js"></script>
+  <script type="text/javascript" src="/js/zepto.min.js"></script>
+  <script type="text/javascript" src="/js/signals.min.js"></script>
+  <script type="text/javascript" src="/js/crossroads.min.js"></script>
+  <script type="text/javascript" src="/js/hasher.min.js"></script>
+<style type="text/css">
+  html, body, button {
+    font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+    font-size: 1.0em;
+  }
+
+  /*
+   * http://css3buttongenerator.com
+   */
+
+  .btn {
+    color: #ffffff;
+    font-size: 0.85em;
+    background: #16167a;
+    padding: 7px 20px 7px 20px;
+    text-decoration: none;
+    border: 0;
+  }
+  .btn:hover {
+    background: #339955;
+  }
+
+  /* Error message */
+
+  .errorBox p {
+    text-align: center;
+    font-size: 1.4em;
+    font-weight: bolder;
+  }
+
+  .content {
+    left: 0;
+    right: 0;
+    width: 90%;
+    margin: 0 auto;
+    max-width: 1024px;
+  }
+
+  /* Header */
+
+  .header button {
+    margin-left: 18px;
+  }
+  .header img {
+    height: 24px;
+    width: 24px;
+    float: right;
+    vertical-align: middle;
+  }
+
+  /* About */
+
+  .aboutPage {
+    padding-left: 10px;
+    padding-top: 15px;
+  }
+
+
+</style>
+</head>
+<body>
+<div class="content">
+
+  <!-- Header :: buttons & loading animation //-->
+  <div class="header">
+      <button class="btn" data-bind="click: About">About</button>
+      <button class="btn" data-bind="click: CA">CA</button>
+      <button class="btn" data-bind="click: Client">Client</button>
+      <button class="btn" data-bind="click: PKCS">PKCS</button>
+      <!-- http://spiffygif.com //-->
+      <img src="/img/spiffygif.gif" alt="Loading"
+           data-bind="visible: onAJAX()" />
+  </div>
+
+  <!-- Error message box //-->
+  <div class="errorBox" data-bind="with: errorMessage">
+    <p><span data-bind="text: $data"></span></p>
+  </div>
+
+  <!-- About page //-->
+  <div class="aboutPage" data-bind="visible: onAbout()">
+    <h1>The plcrtd project: OpenSSL Certificate Manager</h1>
+    <h2>Description</h2>
+    <p>This is an online web certificate manager implemented
+       as described in 
+       <a title="Mini tutorial for configuring client-side SSL certificates."
+          href="https://gist.github.com/mtigas/952344" >howto</a>
+          written by 
+       <a href="https://gist.github.com/mtigas"
+          title="About user mtigas on GitHub">mtigas</a>.
+    </p>
+    <h2>Promises</h2>
+    <p>The service was created by a sysadmin for the sysadmins.
+       That's means, no information will be stored on a server side.
+       Any piece of data you entered will be sent to the server 
+       and computed via the 
+       <a href="http://www.openssl.org/" title="OpenSSL homepage">openssl</a>
+       command, and the results will be returned back to you 
+       (a browser client) as soon as possible.</p>
+    <p>Every piece of information you received from the server 
+       you have to save on your computer immediately. 
+       Otherwise, no one helps you to restore a data.</p>
+    <h2>Development</h2>
+    <p>This is an open source project. Please, checkout sources
+      <a href="https://github.com/gh0stwizard/plcrtd"
+         title="plcrtd on GitHub">here</a>.</p>
+  </div>
+  
+  <!-- CA Page //-->
+  <div class="caPage" data-bind="visible: onCA()">
+    <h1>CA - not implemented yet</h1>
+  </div>
+
+  <!-- Client Page //-->
+  <div class="clientPage" data-bind="visible: onClient()">
+    <h1>Client - not implemented yet</h1>
+  </div>
+
+  <!-- PKCS Page //-->
+  <div class="pkcsPage" data-bind="visible: onPKCS()">
+    <h1>PKCS - not implemented yet</h1>
+  </div>
+
+</div>
+<script>
+  var suffix = '/plcrtd',
+      ra = window.location.protocol + '//' + window.location.host + suffix + '?',
+      errors = [
+        'Connection error',
+        'Bad request',
+        'Not implemented',
+        'Internal error'
+      ];
+
+  function AppViewModel() {
+    var self = this;
+    
+    /*  Data  */
+
+    self.onAJAX = ko.observable();
+    self.errorMessage = ko.observable();
+
+    /*  Data: this app  */
+
+    self.onAbout = ko.observable();
+    self.onCA = ko.observable();
+    self.onClient = ko.observable();
+    self.onPKCS = ko.observable();
+    
+
+    /*  Behaviours  */
+
+    self.About = function () { location.hash = ''; }
+    self.CA = function () { location.hash = 'ca'; }
+    self.Client = function () { location.hash = 'client'; }
+    self.PKCS = function () { location.hash = 'pkcs'; }
+
+
+    /*  Formaters  */
+
+    /*  Helpers  */
+    
+    function cleanAll () {
+      self.onAbout( false );
+      self.onCA( false );
+      self.onClient( false );
+      self.onPKCS( false );
+    }
+    
+    function plusRequest() {
+      var n = self.onAJAX() ? self.onAJAX() : 0;
+      self.onAJAX( n + 1 );
+    }
+    
+    function minusRequest() {
+      var n = self.onAJAX() ? self.onAJAX() : 1;
+      self.onAJAX( n - 1 );
+    }
+
+    function getJSON ( url, cb ) {
+      plusRequest();
+
+      $.ajax( {
+        type: 'GET',
+        url: url,
+        dataType: 'json',
+        cache: false,
+        success: cb,
+        error: function ( xhr, type, error ) {
+          self.errorMessage( error );
+        },
+        complete: function () {
+          minusRequest();
+        }
+      } );
+    }
+
+    function postJSON ( url, payload, cb ) {
+      plusRequest();
+
+      $.ajax( {
+        type: 'POST',
+        url: url,
+        data: data,
+        dataType: 'json',
+        success: cb,
+        error: function ( xhr, type, error ) {
+          self.errorMessage( error );
+        },
+        complete: function () {
+          minusRequest();
+        }
+      } );
+    }
+
+    function getRequest ( action, name, cb ) {
+      getJSON( ra + 'action=' + action + '&name=' + name, function( data ) {
+        if ( data.err == null ) {
+          cb( data );
+        } else {
+          self.errorMessage( errors[ data.err ] );
+        }
+      } );
+    }
+
+    /*  Router functions  */
+
+    function mainPage () {
+      cleanAll();
+      self.onAbout( true );
+    }
+    
+    function caPage () {
+      cleanAll();
+      self.onCA( true );
+    }
+    
+    function clientPage () {
+      cleanAll();
+      self.onClient( true );
+    }
+
+    function pkcsPage () {
+      cleanAll();
+      self.onPKCS( true );
+    }
+
+    /*  Setup routers  */
+
+    crossroads.addRoute( '', mainPage );
+    crossroads.addRoute( '/', mainPage );
+    var actionsRouter = crossroads.addRoute( '{action}' );
+
+    actionsRouter.matched.add( function ( action ) {
+      switch ( action ) {
+        case 'ca':
+          caPage();
+          break;
+        case 'client':
+          clientPage();
+          break;
+        case 'pkcs':
+          pkcsPage();
+          break;
+        default:
+          mainPage();
+      }
+    } );
+
+    /*  Setup hasher  */
+
+    function parseHash ( newHash, oldHash ) {
+      /* location has been switched to '/' */
+      if ( newHash == undefined || newHash === "" ) {
+        cleanAll();
+        mainPage();
+      }
+
+      crossroads.parse( newHash );
+    }
+
+    hasher.initialized.add( parseHash ); /* parse initial hash */
+    hasher.changed.add( parseHash );     /* parse hash changes */
+    hasher.init();                       /* start listening for history change */
+  }
+
+  ko.applyBindings( new AppViewModel() );
+</script>
+</body>
+</html>
