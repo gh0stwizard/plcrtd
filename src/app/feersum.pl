@@ -37,6 +37,12 @@ my $RDBUFFSIZE = 32 * 1024;
 
 # http headers for responses
 my @HEADER_JSON = ( 'Content-Type' => 'application/json; charset=UTF-8' );
+my @HEADER_FILE =
+  ( 
+    'Content-Type' => 'application/octet-stream',
+    'Content-disposition' => 'attachment; filename=client.p12',
+  )
+;
 
 
 =head1 FUNCTIONS
@@ -71,7 +77,12 @@ sub app {
     my $type = $env->{ 'CONTENT_TYPE' };
     my $len = $env->{ 'CONTENT_LENGTH' };
     my $req = delete $env->{ 'psgi.input' };
-
+    
+    AE::log trace => "POST request: type = %s, length = %d",
+      $type,
+      $len,
+    ;
+    
     &do_post( $R, $req, $len, $type );
 
   } elsif ( $method eq 'GET' ) {
@@ -83,7 +94,7 @@ sub app {
     _405( $R );
 
   }
-  
+
   return;
 }
 
@@ -98,14 +109,15 @@ A key represents a name of parameter and it's value represents an actual value.
 
 sub get_params($$$) {
   my ( $r, $len, $content_type ) = @_;
-  
+
   # reject empty, small or very big requests
   ( ( $len < $MIN_BODY_SIZE ) || ( $len > $MAX_BODY_SIZE ) )
     and return;
 
   my $body = HTTP::Body->new( $content_type, $len );
+  # cleanup all temp. files, including upload
   $body->cleanup( 1 );
-  
+
   my $pos = 0;
   my $chunk = ( $len > $RDBUFFSIZE ) ? $RDBUFFSIZE : $len;
 
@@ -116,8 +128,25 @@ sub get_params($$$) {
   }
 
   $r->close();
+
+  # FIXME
+  my $result = $body->param();
+  my $files = $body->upload();
   
-  return $body->param();
+#  use Data::Dumper;
+#  AE::log trace => Dumper $files;
+  
+  for my $param ( keys %$files ) {
+    my $size = $files->{ $param }{ 'size' };
+    $size > 2048 and next;
+    exists $result->{ $param } and next;
+    my $file = $files->{ $param }{ 'tempname' };
+    open( my $fh, "<", $file ) or next;
+    $result->{ $param } = do { local $/; <$fh> };
+    close( $fh );
+  }
+
+  return $result;
 }
 
 
@@ -132,21 +161,22 @@ sub do_post($$$$) {
   my $R = shift;
   my $params = &get_params( @_ )
     or &send_error( $R, &BAD_REQUEST() ), return;
+
+  my $action = $params->{ 'action' } || '<unknown>';
   
-  my $action = $params->{ 'action' } || '';
+  # Check for a length of $pass was added because of
+  # running the command below by a hand does this check.
+  #
+  # No need to call fork() for obvious result.
+
   my $min_pw_len = 4;
   my $max_pw_len = 8192;
-  
+
   if ( $action eq 'genCAkey' || $action eq 'genClientKey' ) {
     my $pass = $params->{ 'pass' } || '';
     my $bits = int( $params->{ 'bits' } || 0 );
-    
-    my $pw_len = length( $pass );
 
-    # Check for a length of $pass was added because of
-    # running the command below by a hand does this check.
-    #
-    # No need to call fork() for obvious result.
+    my $pw_len = length( $pass );
 
     if ( $pw_len >= $min_pw_len && $pw_len < $max_pw_len && $bits >= 1024 ) {
       my $cv = run_cmd [
@@ -159,10 +189,10 @@ sub do_post($$$$) {
         "3<", \$pass,
         "4>", \my $key,
       ;
-      
+
       $cv->cb( sub {
         &Scalar::Util::weaken( my $R = $R );
-      
+
         if ( not shift->recv() ) {
           my $w = $R->start_streaming( 200, \@HEADER_JSON );
           $w->write( encode_json( { key => $key } ) );
@@ -170,7 +200,7 @@ sub do_post($$$$) {
         } else {
           AE::log error => "genCAkey:\n$stderr";
           &send_error( $R, &EINT_ERROR(), $stderr );
-        }        
+        }
       } );
 
     } else {
@@ -182,9 +212,9 @@ sub do_post($$$$) {
     my $pass = $params->{ 'pass' } || '';
     my $days = int( $params->{ 'days' } || 0 );
     my $subj = $params->{ 'subj'} || '';
-    
+
     my $pw_len = length( $pass );
-    
+
     if ( $key ne '' && $subj ne ''
       && $pw_len >= $min_pw_len && $pw_len < $max_pw_len && $days > 0 )
     {
@@ -203,7 +233,7 @@ sub do_post($$$$) {
 
       $cv->cb( sub {
         &Scalar::Util::weaken( my $R = $R );
-      
+
         if ( not shift->recv() ) {
           my $w = $R->start_streaming( 200, \@HEADER_JSON );
           $w->write( encode_json( { key => $key, crt => $crt } ) );
@@ -238,10 +268,10 @@ sub do_post($$$$) {
         "4>", \my $csr,
         "5<", \$pass,
       ;
-      
+
       $cv->cb( sub {
         &Scalar::Util::weaken( my $R = $R );
-      
+
         if ( not shift->recv() ) {
           my $w = $R->start_streaming( 200, \@HEADER_JSON );
           $w->write( encode_json( { key => $key, csr => $csr } ) );
@@ -250,7 +280,7 @@ sub do_post($$$$) {
           &send_error( $R, &EINT_ERROR(), $stderr );
         }
       } );
-      
+
     } else {
       &send_error( $R, &BAD_REQUEST() );
     }
@@ -262,9 +292,9 @@ sub do_post($$$$) {
     my $ca_key = $params->{ 'cakey' } || '';
     my $ca_pass = $params->{ 'capass' } || '';
     my $days = int( $params->{ 'days' } || 0 );
-    
+
     my $pw_len = length( $ca_pass );
-    
+
     if ( $csr ne '' && $ca_crt ne '' && $ca_key ne ''
       && $days > 0 && $pw_len >= $min_pw_len && $pw_len < $max_pw_len )
     {
@@ -282,10 +312,10 @@ sub do_post($$$$) {
         "6>", \my $crt,
         "7<", \$ca_pass,
       ;
-      
+
       $cv->cb( sub {
         &Scalar::Util::weaken( my $R = $R );
-      
+
         if ( not shift->recv() ) {
           my $w = $R->start_streaming( 200, \@HEADER_JSON );
           $w->write( encode_json( { csr => $csr, crt => $crt } ) );
@@ -293,12 +323,94 @@ sub do_post($$$$) {
         } else {
           &send_error( $R, &EINT_ERROR(), $stderr );
         }
+      } );
+      
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
+
+  } elsif ( $action eq 'genP12' ) {
+    my $key = $params->{ 'key' } || '';
+    my $crt = $params->{ 'crt' } || '';
+    my $pwd = $params->{ 'pwd' } || '';
+    my $Xpw = $params->{ 'Xpw' } || "\n";
+
+    my $pw_len = length( $pwd );
+    
+    if ( $key ne '' && $crt ne ''
+      && $pw_len >= $min_pw_len && $pw_len < $max_pw_len )
+    {
+      my $cmd = [
+        qw( openssl pkcs12 -export -clcerts ),
+        qw( -in /dev/fd/3 -inkey /dev/fd/4 -out /dev/fd/5 ),
+        qw( -passin fd:6 -passout fd:7 ),
+      ];
+      
+      my $cv = run_cmd $cmd,
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$crt,
+        "4<", \$key,
+        "5>", \my $p12,
+        "6<", \$pwd,
+        "7<", \$Xpw,
+      ;
+
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_FILE );
+          $w->write( $p12 );
+          $w->close();
+        } else {
+          _500( $R );
+        }
+      } );
+
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
+  
+  } elsif ( $action eq 'convP12' ) {    
+    my $p12 = $params->{ 'p12' } || '';
+    my $pwd = $params->{ 'pwd' } || "\n"; # Import Password
+    my $ppw = $params->{ 'ppw' } || "\n"; # PEM pass phrase
+    
+    my $pw_len = length( $pwd );
+    
+    if ( $p12 ne '' ) {
+      my $cv = run_cmd [
+        qw( openssl pkcs12 -in /dev/fd/3 -out /dev/fd/4 -clcerts ),
+        qw( -passin fd:5 -passout fd:6 )
+      ],
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$p12,
+        "4>", \my $pem,
+        "5<", \$pwd,
+        "6<", \$ppw,
+      ;
+      
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_FILE );
+          $w->write( $pem );
+          $w->close();
+        } else {
+          _500( $R );
+        }
+
       } );      
       
     } else {
       &send_error( $R, &BAD_REQUEST() );
     }
-    
+        
   } else {
     # wrong input
     &send_error( $R, &NOT_IMPLEMENTED() );
@@ -339,14 +451,14 @@ Some sort of an internal error has occurs on a server side.
 
 sub send_error($$;$) {
   my ( $R, $code, $msg ) = @_;
-  
+
   my %data = ( err => $code );
   $data{ 'msg' } = decode_utf8( $msg ) if ( $msg );
-  
+
   my $w = $R->start_streaming( 200, \@HEADER_JSON );
   $w->write( encode_json( \%data ) );
   $w->close();
-  
+
   return;
 }
 

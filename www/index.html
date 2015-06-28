@@ -14,6 +14,7 @@
   <script type="text/javascript" src="/js/signals.min.js"></script>
   <script type="text/javascript" src="/js/crossroads.min.js"></script>
   <script type="text/javascript" src="/js/hasher.min.js"></script>
+  <!-- script type="text/javascript" src="/js/Blob.js"></script //-->
 <style type="text/css">
   html, body, button, p, input, select {
     font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
@@ -130,6 +131,9 @@
   .boxSetup input {
     border: 0;
     border-bottom: 1px solid #029;
+  }
+  .boxSetup input.file {
+    border: 1px solid #029;
   }
 
   /*  Footer  */
@@ -312,9 +316,42 @@
   <!-- PKCS Page //-->
   <div class="pkcsPage" data-bind="visible: onPKCS()">
     <h3>PKCS#12 file</h3>
+    <div class="boxSetup">
+      <p>Client certificate key</p>
+      <div class="boxInput">
+        <textarea rows="10" cols="66" data-bind="value: inPKCSClientKey"></textarea>
+      </div>
+      <p>Client certificate</p>
+      <div class="boxInput">
+        <textarea rows="10" cols="66" data-bind="value: inPKCSClientCrt"></textarea>
+      </div>
+      <p>Client password
+      <input size="16" data-bind="value: inPKCSClientPwd" /></p>
+      <p>Export password
+      <input size="16" data-bind="value: inPKCSClientXpw" /></p>
+    </div>
+    <div class="boxContainer">
+      <button class="btn" data-bind="click: genP12, enable: genP12Ready()">Get!</button>
+    </div>
+    <h3>Convert PKCS#12 to PEM</h3>
+    <form action="/plcrtd" enctype="multipart/form-data" method="post">
+    <div class="boxSetup">
+      <p>PKCS#12 file
+      <input type="file" class="file" name="p12" /></p>
+      <br />
+      <p>Password
+      <input size="32" name="pwd" data-bind="value: inPKCSpemPwd" /></p>
+    </div>
+    <div class="boxContainer">
+      <input type="hidden" name="action" value="convP12" />
+      <input type="submit" class="btn" value="Get!" />
+    </div>
+    </form>
   </div>
 
   <div class="footer"></div>
+  
+  <iframe style="display: none" id="hframe"></iframe>
 
 </div>
 <script>
@@ -384,6 +421,19 @@
 
     self.outClientCrt = ko.observable();
     self.genClientCrtReady = ko.observable();
+
+  
+    self.genP12Ready = ko.observable();
+    self.inPKCSClientCrt = ko.observable();
+    self.inPKCSClientKey = ko.observable();
+    self.inPKCSClientPwd = ko.observable();
+    self.inPKCSClientXpw = ko.observable();
+    
+    self.outPKCSpem = ko.observable();
+    self.convP12Ready = ko.observable();
+    self.inPKCSpemPwd = ko.observable();
+    
+    self.inPKCSpemFile = ko.observable();
 
 
     self.browserCheck = ko.computed( function () {
@@ -607,6 +657,68 @@
     }
 
 
+    self.genP12 = function () {
+      clearError();
+      self.genP12Ready( false );
+      
+      var key = self.inPKCSClientKey(),
+          crt = self.inPKCSClientCrt(),
+          pwd = self.inPKCSClientPwd(),
+          Xpw = self.inPKCSClientXpw();
+      
+      
+      /*  FIXME  */
+      
+      $( '<form action=' + addr + suffix + ' method="POST"></form>' )
+        .append( '<input type="hidden" name="action" value="genP12" />' )
+        .append( '<input type="hidden" name="key" value="' + key + '"/>' )
+        .append( '<input type="hidden" name="crt" value="' + crt + '"/>' )
+        .append( '<input type="hidden" name="pwd" value="' + pwd + '"/>' )
+        .append( '<input type="hidden" name="Xpw" value="' + Xpw + '"/>' )
+        .appendTo( 'iframe' );
+      
+      $( 'iframe' ).find( 'form' ).submit();
+      $( 'iframe' ).empty();
+
+      self.genP12Ready( true );
+    }
+    
+/*    
+    self.convP12 = function () {
+      self.outPKCSpem( null );
+      clearError();
+      self.convP12Ready( false );
+
+      var form = document.forms.namedItem( "convP12form" ),
+          fd = new FormData( form );
+
+      fd.append( "action", "convP12" );
+
+      plusRequest();
+          
+      $.ajax( {
+        url: addr + suffix,
+        type: "POST",
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: "text",
+        cache: false,
+        success: function ( response ) {
+          self.convP12Ready( true );
+        },
+        error: function ( xhr, type, error ) {
+          self.errorMessage( error );
+        },
+        complete: function () {
+          minusRequest();
+        }
+      } );
+    
+      return false;
+    }    
+*/    
+
     /*  Helpers  */
 
     function cleanAll () {
@@ -668,7 +780,7 @@
         }
       } );
     }
-
+    
     function getRequest ( action, name, cb ) {
       getJSON( ra + 'action=' + action + '&name=' + name, function( data ) {
         if ( data.err == null ) {
@@ -693,7 +805,7 @@
       self.inCADays() ? "" : self.inCADays( 365 );
       self.inCASubject()
         ? "" 
-        : self.inCASubject( '/C=US/ST=Texas/O=gh0stwizard/CN=plcrtd' );
+        : self.inCASubject( '/CN=' + window.location.host + '/O=plcrtd' );
       self.genCAkeyReady( true );
       self.genCAcrtReady( true );
     }
@@ -707,8 +819,8 @@
       self.inClientPassword() ? "" : self.inClientPassword( 'test' );
       self.inClientDays() ? "" : self.inClientDays( 365 );
       self.inClientSubject()
-        ? "" 
-        : self.inClientSubject( '/CN=plcrtd' );
+        ? ""
+        : self.inClientSubject( '/CN=' + window.location.host );
       self.inClientSerial() ? "" : self.inClientSerial( '01' );
       self.inClientCAPassword() ? "" : self.inClientCAPassword( 'test' );
     }
@@ -716,6 +828,9 @@
     function pkcsPage () {
       cleanAll();
       self.onPKCS( true );
+      self.genP12Ready( true );
+      self.inPKCSClientPwd() ? "" : self.inPKCSClientPwd( 'test' );
+      self.convP12Ready( true );
     }
 
     /*  Setup routers  */

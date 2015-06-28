@@ -53,6 +53,7 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MIO::FDPass \
 -MProc::FastSpawn \
 -MHTML::Entities \
+-MData::Dumper \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \
