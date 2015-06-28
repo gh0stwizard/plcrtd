@@ -19,7 +19,7 @@
     font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
     font-size: 1.0em;
   }
-  
+
   textarea {
     font-family: "Lucida Console", Monaco, monospace;
     font-size: 1.0em;
@@ -39,9 +39,9 @@
   .btn:hover {
     background: #339955;
   }
-  
+
   /* http://stackoverflow.com/questions/3759692/css-selector-for-disabled-input-type-submit */
-  
+
   input[type=submit]:disabled.btn,
   button:disabled.btn {
     background: #993355;
@@ -78,7 +78,9 @@
   /*  Pages  */
 
   .aboutPage,
-  .caPage {
+  .caPage,
+  .clientPage,
+  .pkcsPage {
     padding-top: 22px;
   }
 
@@ -87,31 +89,36 @@
   .aboutPage {
     padding-left: 10px;
   }
-  
+
   /* Text data container */
-  
+
   .boxContainer {
     display: flex;
   }
-  
+
   .boxOutput {
     border: 1px solid black;
   }
   
+  .boxInput {
+    display: table-cell;
+    border: 1px solid #029;
+  }
+
   .boxButtonsContainer {
     display: inline;
     padding-top: 16px;
     padding-left: 12px;
-  }  
+  }
   .boxButtonsContainer button {
     margin: 12px 0;
     width: 120px;
   }
-  
+
   .boxSetup {
     padding-top: 5px;
     padding-bottom: 15px;
-  }  
+  }
   .boxSetup p {
     display: inline;
     padding-right: 12px;
@@ -124,9 +131,9 @@
     border: 0;
     border-bottom: 1px solid #029;
   }
-  
+
   /*  Footer  */
-  
+
   .footer {
     padding-top: 15px;
     padding-bottom: 15px;
@@ -153,7 +160,6 @@
     <p><span data-bind="text: errorMessage"></span></p>
     <pre><span data-bind="text: errorDescription"></span></pre>
   </div>
-  
 
   <!-- About page //-->
   <div class="aboutPage" data-bind="visible: onAbout()">
@@ -183,15 +189,15 @@
       <a href="https://github.com/gh0stwizard/plcrtd"
          title="plcrtd on GitHub">here</a>.</p>
   </div>
-  
+
   <!-- Certificate Authority Page //-->
   <div class="caPage" data-bind="visible: onCA()">
     <h3>Certificate Authority key</h3>
     <div class="boxSetup">
       <p>Password
-      <input size="32" data-bind="value: inPassword" /></p>
+      <input size="32" data-bind="value: inCAPassword" /></p>
       <p>Bits
-      <select data-bind="options: [ 2048, 4096 ], value: inBits"></select></p>
+      <select data-bind="options: bitsOptions, value: inCABits"></select></p>
     </div>
     <div class="boxContainer">
       <div class="boxOutput">
@@ -202,18 +208,17 @@
                 data-bind="click: genCAkey, enable: genCAkeyReady()">Get!</button>
         <br />
         <button class="btn"
-          data-bind="click: save.bind( $data, 'ca.key', $root.outCAkey() ),
-                     visible: outCAkey() && browserCheck(),
-                     clickBubble: false">Save</button>
+          data-bind="click: save.bind( $data, 'ca.key', outCAkey() ),
+                     visible: outCAkey() && browserCheck()">Save</button>
       </div>
     </div>
     <h3>Certificate Authority certificate</h3>
     <p>Please, provide the same password above as you've used for key generation.</p>
     <div class="boxSetup">
       <p>Subject
-      <input size="42" class="subj" data-bind="value: inSubject" /></p>
+      <input size="42" class="subj" data-bind="value: inCASubject" /></p>
       <p>Days
-      <input size="4" data-bind="value: inDays" /></p>
+      <input size="4" data-bind="value: inCADays" /></p>
     </div>
     <div class="boxContainer">
       <div class="boxOutput">
@@ -223,7 +228,7 @@
         <button class="btn" data-bind="click: genCAcrt, enable: genCAcrtReady()">Get!</button>
         <br />
         <button class="btn"
-          data-bind="click: save.bind( $data, 'ca.crt', $root.outCAcrt() ),
+          data-bind="click: save.bind( $data, 'ca.crt', outCAcrt() ),
                      visible: outCAcrt() && browserCheck()">Save</button>
       </div>
     </div>
@@ -231,14 +236,84 @@
 
   <!-- Client Page //-->
   <div class="clientPage" data-bind="visible: onClient()">
-    <h1>Client - not implemented yet</h1>
+    <h3>Client Certificate key</h3>
+    <div class="boxSetup">
+      <p>Password
+      <input size="32" data-bind="value: inClientPassword" /></p>
+      <p>Bits
+      <select data-bind="options: bitsOptions, value: inClientBits"></select></p>
+    </div>
+    <div class="boxContainer">
+      <div class="boxOutput">
+        <textarea rows="10" cols="66" data-bind="value: outClientKey"></textarea>
+      </div>
+      <div class="boxButtonsContainer">
+        <button class="btn"
+                data-bind="click: genClientKey, enable: genClientKeyReady()">Get!</button>
+        <br />
+        <button class="btn"
+          data-bind="click: save.bind( $data, 'client.key', outClientKey() ),
+                     visible: outClientKey() && browserCheck()">Save</button>
+      </div>
+    </div>
+    <h3>Client Certificate request</h3>
+    <p>Please, provide the same password above as you've used for key generation.</p>
+    <div class="boxSetup">
+      <p>Subject
+      <input size="42" class="subj" data-bind="value: inClientSubject" /></p>
+    </div>
+    <div class="boxContainer">
+      <div class="boxOutput">
+        <textarea rows="10" cols="66" data-bind="value: outClientCsr"></textarea>
+      </div>
+      <div class="boxButtonsContainer">
+        <button class="btn"
+                data-bind="click: genClientCsr,
+                          enable: genClientCsrReady()">Get!</button>
+        <br />
+        <button class="btn"
+          data-bind="click: save.bind( $data, 'client.csr', outClientCsr() ),
+                     visible: outClientCsr() && browserCheck()">Save</button>
+      </div>
+    </div>
+    <h3>Client Certificate (self-signed)</h3>
+    <div class="boxSetup">
+      <p>CA key</p>
+      <div class="boxInput">
+        <textarea rows="10" cols="66" data-bind="value: inClientCAkey"></textarea>
+      </div>
+      <p>CA certificate</p>
+      <div class="boxInput">
+        <textarea rows="10" cols="66" data-bind="value: inClientCAcrt"></textarea>
+      </div>
+      <p>CA password
+      <input size="32" data-bind="value: inClientCAPassword" /></p>
+      <p>Days
+      <input size="4" data-bind="value: inClientDays" /></p>
+      <p>Serial
+      <input size="4" data-bind="value: inClientSerial" /></p>
+    </div>
+    <div class="boxContainer">
+      <div class="boxOutput">
+        <textarea rows="10" cols="66" data-bind="value: outClientCrt"></textarea>
+      </div>
+      <div class="boxButtonsContainer">
+        <button class="btn"
+                data-bind="click: genClientCrt,
+                          enable: genClientCrtReady()">Get!</button>
+        <br />
+        <button class="btn"
+          data-bind="click: save.bind( $data, 'client.crt', outClientCrt() ),
+                     visible: outClientCrt() && browserCheck()">Save</button>
+      </div>
+    </div>    
   </div>
 
   <!-- PKCS Page //-->
   <div class="pkcsPage" data-bind="visible: onPKCS()">
-    <h1>PKCS - not implemented yet</h1>
+    <h3>PKCS#12 file</h3>
   </div>
-  
+
   <div class="footer"></div>
 
 </div>
@@ -251,7 +326,8 @@
         'Bad request',
         'Not implemented',
         'Internal error'
-      ];
+      ],
+      bitsOptions = [ 1024, 2048, 4096 ];
 
   /* http://stackoverflow.com/questions/5999998/how-can-i-check-if-a-javascript-variable-is-function-type */
 
@@ -260,11 +336,11 @@
     return functionToCheck 
         && getType.toString.call(functionToCheck) === '[object Function]';
   }
-  
+
 
   function AppViewModel() {
     var self = this;
-    
+
     /*  Data  */
 
     self.onAJAX = ko.observable();
@@ -278,16 +354,37 @@
     self.onClient = ko.observable();
     self.onPKCS = ko.observable();
 
-    self.inPassword = ko.observable();
-    self.inBits = ko.observable();
-    self.inDays = ko.observable();
-    self.inSubject = ko.observable();
+
+    self.inCAPassword = ko.observable();
+    self.inCABits = ko.observable();
+    self.inCADays = ko.observable();
+    self.inCASubject = ko.observable();
 
     self.outCAkey = ko.observable();
     self.genCAkeyReady = ko.observable();
 
     self.outCAcrt = ko.observable();
     self.genCAcrtReady = ko.observable();
+
+
+    self.inClientPassword = ko.observable();
+    self.inClientBits = ko.observable();
+    self.inClientDays = ko.observable();
+    self.inClientSubject = ko.observable();
+    self.inClientSerial = ko.observable();
+    self.inClientCAPassword = ko.observable();
+    self.inClientCAkey = ko.observable();
+    self.inClientCAcrt = ko.observable();
+
+    self.outClientKey = ko.observable();
+    self.genClientKeyReady = ko.observable();
+
+    self.outClientCsr = ko.observable();
+    self.genClientCsrReady = ko.observable();
+
+    self.outClientCrt = ko.observable();
+    self.genClientCrtReady = ko.observable();
+
 
     self.browserCheck = ko.computed( function () {
       var version = parseFloat( navigator.appVersion );
@@ -303,7 +400,7 @@
           || ( navigator.userAgent.indexOf( "Firefox" ) != -1
             && version > 15 );
     } );
-    
+
 
     /*  Behaviours  */
 
@@ -333,14 +430,13 @@
       self.outCAkey( null );
       self.outCAcrt( null );
       clearError();
-      
       self.genCAkeyReady( false );
 
-      var pass = self.inPassword(),
-          bits = self.inBits();
-      
+      var pass = self.inCAPassword(),
+          bits = self.inCABits();
+
       postJSON( addr + suffix,
-        { 
+        {
           action: 'genCAkey',
           pass: pass,
           bits: bits
@@ -358,17 +454,16 @@
         }
       );
     }
-    
+
     self.genCAcrt = function () {
       self.outCAcrt( null );
       clearError();
-      
       self.genCAcrtReady( false );
-    
+
       var cb = function () {
-        var pass = self.inPassword(),
-            days = self.inDays(),
-            subj = self.inSubject(),
+        var pass = self.inCAPassword(),
+            days = self.inCADays(),
+            subj = self.inCASubject(),
             key = self.outCAkey();
 
         postJSON( addr + suffix,
@@ -399,29 +494,140 @@
       }
     }
 
-    /*  Formaters  */
+
+    self.genClientKey = function ( cb ) {
+      self.outClientKey( null );
+      self.outClientCsr( null );
+      self.outClientCrt( null );
+      clearError();
+      self.genClientKeyReady( false );
+
+      var pass = self.inClientPassword(),
+          bits = self.inClientBits();
+
+      postJSON( addr + suffix,
+        { 
+          action: 'genClientKey',
+          pass: pass,
+          bits: bits
+        },
+        function ( response ) {
+          if ( response.key ) {
+            self.outClientKey( response.key );
+            isFunction( cb ) ? cb() : "";
+          } else {
+            self.errorMessage( errors[ response.err ] );
+            self.errorDescription( response.msg );
+          }
+
+          self.genClientKeyReady( true );
+        }
+      );
+    }
+
+    self.genClientCsr = function ( cb ) {
+      self.outClientCsr( null );
+      clearError();
+      self.genClientCsrReady( false );
+
+      var mycb = function () {
+        var pass = self.inClientPassword(),
+            subj = self.inClientSubject(),
+            key = self.outClientKey();
+
+        postJSON( addr + suffix,
+          {
+            action: 'genClientCsr',
+            pass: pass,
+            key: key,
+            subj: subj
+          },
+          function ( response ) {
+            if ( response.csr ) {
+              self.outClientCsr( response.csr );
+              isFunction( cb ) ? cb() : "";
+            } else {
+              self.errorMessage( errors[ response.err ] );
+              self.errorDescription( response.msg );
+            }
+            
+            self.genClientCsrReady( true );
+          }
+        );
+      }
+
+      if ( ! self.outClientKey() ) {
+        self.genClientKey( mycb );
+      } else {
+        mycb();
+      }
+    }
+    
+    self.genClientCrt = function () {
+      self.outClientCrt( null );
+      clearError();
+      self.genClientCrtReady( false );
+
+      var mycb = function () {
+        var csr = self.outClientCsr(),
+            days = self.inClientDays(),
+            cacrt = self.inClientCAcrt(),
+            cakey = self.inClientCAkey(),
+            capass = self.inClientCAPassword(),
+            serial = self.inClientSerial();
+
+        postJSON( addr + suffix,
+          {
+            action: 'genClientCrt',
+            serial: serial,
+            csr: csr,
+            cacrt: cacrt,
+            cakey: cakey,
+            capass: capass,
+            days: days
+          },
+          function ( response ) {
+            if ( response.crt ) {
+              self.outClientCrt( response.crt );
+            } else {
+              self.errorMessage( errors[ response.err ] );
+              self.errorDescription( response.msg );
+            }
+            
+            self.genClientCrtReady( true );
+          }
+        );      
+      }
+      
+      if ( ! self.outClientCsr() ) {
+        self.genClientCsr( mycb );
+      } else {
+        mycb();
+      }      
+    }
+
 
     /*  Helpers  */
-    
+
     function cleanAll () {
       clearError();
-    
+
       self.onAbout( false );
       self.onCA( false );
       self.onClient( false );
       self.onPKCS( false );
     }
-    
+
     function clearError () {
       self.errorMessage( null );
       self.errorDescription( null );
     }
-    
+
     function plusRequest() {
       var n = self.onAJAX() ? self.onAJAX() : 0;
       self.onAJAX( n + 1 );
     }
-    
+
     function minusRequest() {
       var n = self.onAJAX() ? self.onAJAX() : 1;
       self.onAJAX( n - 1 );
@@ -479,22 +685,32 @@
       cleanAll();
       self.onAbout( true );
     }
-    
+
     function caPage () {
       cleanAll();
       self.onCA( true );      
-      self.inPassword() ? "" : self.inPassword( 'test' );
-      self.inDays() ? "" : self.inDays( 365 );
-      self.inSubject()
+      self.inCAPassword() ? "" : self.inCAPassword( 'test' );
+      self.inCADays() ? "" : self.inCADays( 365 );
+      self.inCASubject()
         ? "" 
-        : self.inSubject( '/C=US/ST=Texas/O=gh0stwizard/CN=plcrtd' );
+        : self.inCASubject( '/C=US/ST=Texas/O=gh0stwizard/CN=plcrtd' );
       self.genCAkeyReady( true );
       self.genCAcrtReady( true );
     }
-    
+
     function clientPage () {
       cleanAll();
       self.onClient( true );
+      self.genClientKeyReady( true );
+      self.genClientCrtReady( true );
+      self.genClientCsrReady( true );
+      self.inClientPassword() ? "" : self.inClientPassword( 'test' );
+      self.inClientDays() ? "" : self.inClientDays( 365 );
+      self.inClientSubject()
+        ? "" 
+        : self.inClientSubject( '/CN=plcrtd' );
+      self.inClientSerial() ? "" : self.inClientSerial( '01' );
+      self.inClientCAPassword() ? "" : self.inClientCAPassword( 'test' );
     }
 
     function pkcsPage () {

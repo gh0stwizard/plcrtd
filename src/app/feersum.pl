@@ -134,8 +134,10 @@ sub do_post($$$$) {
     or &send_error( $R, &BAD_REQUEST() ), return;
   
   my $action = $params->{ 'action' } || '';
+  my $min_pw_len = 4;
+  my $max_pw_len = 8192;
   
-  if ( $action eq 'genCAkey' ) {
+  if ( $action eq 'genCAkey' || $action eq 'genClientKey' ) {
     my $pass = $params->{ 'pass' } || '';
     my $bits = int( $params->{ 'bits' } || 0 );
     
@@ -146,7 +148,7 @@ sub do_post($$$$) {
     #
     # No need to call fork() for obvious result.
 
-    if ( $pw_len >= 4 && $pw_len < 8192 && $bits >= 1024 ) {
+    if ( $pw_len >= $min_pw_len && $pw_len < $max_pw_len && $bits >= 1024 ) {
       my $cv = run_cmd [
         qw( openssl genrsa -des3 -passout fd:3 -out /dev/fd/4 ),
         $bits
@@ -184,8 +186,7 @@ sub do_post($$$$) {
     my $pw_len = length( $pass );
     
     if ( $key ne '' && $subj ne ''
-      && $pw_len >= 4 && $pw_len < 8192
-      && $days > 0 )
+      && $pw_len >= $min_pw_len && $pw_len < $max_pw_len && $days > 0 )
     {
       my $cv = run_cmd [
         qw( openssl req -batch -new -x509 -days ), $days,
@@ -215,11 +216,95 @@ sub do_post($$$$) {
     } else {
       &send_error( $R, &BAD_REQUEST() );
     }
+
+  } elsif ( $action eq 'genClientCsr' ) {
+    my $pass = $params->{ 'pass' } || '';
+    my $subj = $params->{ 'subj' } || '';
+    my $key = $params->{ 'key' } || '';
+
+    my $pw_len = length( $pass );
+
+    if ( $key ne '' && $subj ne ''
+      && $pw_len >= $min_pw_len && $pw_len < $max_pw_len )
+    {
+      my $cv = run_cmd [
+        qw( openssl req -batch -new -key /dev/fd/3 -out /dev/fd/4 ),
+        qw( -passin fd:5 -subj ), $subj
+      ],
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$key,
+        "4>", \my $csr,
+        "5<", \$pass,
+      ;
+      
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+      
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_JSON );
+          $w->write( encode_json( { key => $key, csr => $csr } ) );
+          $w->close();
+        } else {
+          &send_error( $R, &EINT_ERROR(), $stderr );
+        }
+      } );
+      
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
+
+  } elsif ( $action eq 'genClientCrt' ) {
+    my $serial = $params->{ 'serial' } || '01';
+    my $csr = $params->{ 'csr' } || '';
+    my $ca_crt = $params->{ 'cacrt' } || '';
+    my $ca_key = $params->{ 'cakey' } || '';
+    my $ca_pass = $params->{ 'capass' } || '';
+    my $days = int( $params->{ 'days' } || 0 );
+    
+    my $pw_len = length( $ca_pass );
+    
+    if ( $csr ne '' && $ca_crt ne '' && $ca_key ne ''
+      && $days > 0 && $pw_len >= $min_pw_len && $pw_len < $max_pw_len )
+    {
+      my $cv = run_cmd [
+        qw( openssl x509 -req -in /dev/fd/3 -CA /dev/fd/4 -CAkey /dev/fd/5 ),
+        qw( -out /dev/fd/6 -days ), $days, qw( -set_serial ), $serial,
+        qw( -passin fd:7 )
+      ],
+        "<", "/dev/null",
+        ">", \my $stdout,
+        "2>", \my $stderr,
+        "3<", \$csr,
+        "4<", \$ca_crt,
+        "5<", \$ca_key,
+        "6>", \my $crt,
+        "7<", \$ca_pass,
+      ;
+      
+      $cv->cb( sub {
+        &Scalar::Util::weaken( my $R = $R );
+      
+        if ( not shift->recv() ) {
+          my $w = $R->start_streaming( 200, \@HEADER_JSON );
+          $w->write( encode_json( { csr => $csr, crt => $crt } ) );
+          $w->close();
+        } else {
+          &send_error( $R, &EINT_ERROR(), $stderr );
+        }
+      } );      
+      
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+    }
     
   } else {
     # wrong input
     &send_error( $R, &NOT_IMPLEMENTED() );
   }
+
+  return;
 }
 
 
