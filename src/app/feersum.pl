@@ -37,13 +37,20 @@ my $RDBUFFSIZE = 32 * 1024;
 
 # http headers for responses
 my @HEADER_JSON = ( 'Content-Type' => 'application/json; charset=UTF-8' );
-my @HEADER_FILE =
+
+# FIXME
+my @HEADER_P12 =
   ( 
     'Content-Type' => 'application/octet-stream',
     'Content-disposition' => 'attachment; filename=client.p12',
   )
 ;
-
+my @HEADER_PEM =
+  ( 
+    'Content-Type' => 'application/octet-stream',
+    'Content-disposition' => 'attachment; filename=client.pem',
+  )
+;
 
 =head1 FUNCTIONS
 
@@ -361,7 +368,7 @@ sub do_post($$$$) {
         &Scalar::Util::weaken( my $R = $R );
 
         if ( not shift->recv() ) {
-          my $w = $R->start_streaming( 200, \@HEADER_FILE );
+          my $w = $R->start_streaming( 200, \@HEADER_P12 );
           $w->write( $p12 );
           $w->close();
         } else {
@@ -398,7 +405,7 @@ sub do_post($$$$) {
         &Scalar::Util::weaken( my $R = $R );
 
         if ( not shift->recv() ) {
-          my $w = $R->start_streaming( 200, \@HEADER_FILE );
+          my $w = $R->start_streaming( 200, \@HEADER_PEM );
           $w->write( $pem );
           $w->close();
         } else {

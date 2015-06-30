@@ -505,14 +505,6 @@
       ],
       bitsOptions = [ 1024, 2048, 4096 ];
 
-  /* http://stackoverflow.com/questions/5999998/how-can-i-check-if-a-javascript-variable-is-function-type */
-
-  function isFunction ( functionToCheck ) {
-    var getType = {};
-    return functionToCheck 
-        && getType.toString.call(functionToCheck) === '[object Function]';
-  }
-
 
   function AppViewModel() {
     var self = this;
@@ -679,7 +671,7 @@
         function ( response ) {
           if ( response.key ) {
             self.outCAkey( response.key );
-            isFunction( cb ) ? cb() : "";
+            $.isFunction( cb ) ? cb() : "";
           } else {
             self.errorMessage( errors[ response.err ] );
             self.errorDescription( response.msg );
@@ -749,7 +741,7 @@
         function ( response ) {
           if ( response.key ) {
             self.outClientKey( response.key );
-            isFunction( cb ) ? cb() : "";
+            $.isFunction( cb ) ? cb() : "";
           } else {
             self.errorMessage( errors[ response.err ] );
             self.errorDescription( response.msg );
@@ -780,7 +772,7 @@
           function ( response ) {
             if ( response.csr ) {
               self.outClientCsr( response.csr );
-              isFunction( cb ) ? cb() : "";
+              $.isFunction( cb ) ? cb() : "";
             } else {
               self.errorMessage( errors[ response.err ] );
               self.errorDescription( response.msg );
