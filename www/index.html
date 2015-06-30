@@ -23,9 +23,15 @@
   <div class="header">
       <button class="btn" data-bind="click: About">About</button>
       <button class="btn" data-bind="click: Configure">Configure</button>
+      <button class="btn" data-bind="">Private keys</button>
+      <button class="btn" data-bind="">Requests</button>
+      <button class="btn" data-bind="">Certificates</button>
+      <button class="btn" data-bind="">Revoked</button>
+      <!--
       <button class="btn" data-bind="click: CA">CA</button>
       <button class="btn" data-bind="click: Client">Client</button>
       <button class="btn" data-bind="click: PKCS">PKCS</button>
+      //-->
       <!-- http://spiffygif.com //-->
       <img src="/img/spiffygif.gif" alt="Loading"
            data-bind="visible: onAJAX()" />
@@ -74,7 +80,7 @@
         <tbody>
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: dbname" /></td>
+            <td class="editable"><input data-bind="value: dbname, enable: !isUpdate()" /></td>
           </tr>
           <tr>
             <th>Description</th>
