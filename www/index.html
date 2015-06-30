@@ -26,6 +26,10 @@
     font-size: 1.0em;
     border: 0;
   }
+  
+  table {
+    width: 100%;
+  }
 
   /*  http://css3buttongenerator.com  */
 
@@ -81,7 +85,8 @@
   .aboutPage,
   .caPage,
   .clientPage,
-  .pkcsPage {
+  .pkcsPage,
+  .Page {
     padding-top: 22px;
   }
 
@@ -143,6 +148,84 @@
     padding-bottom: 15px;
   }
 
+
+/* 
+ * Table style from
+ *   http://www.smashingmagazine.com/2008/08/13/top-10-css-table-designs/
+ */
+
+#Table {
+  font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+  font-size: 1.0em;
+  margin-top: 15px;
+  text-align: left;
+  border-collapse: collapse;
+}
+#Table th, #AppTable th {
+  font-size: 1.2em;
+  font-weight: normal;
+  padding: 12px 15px;
+  color: #039;
+  text-align: left;
+}
+#Table td {
+  padding: 10px 15px;
+  color: #669;
+  border-top: 1px solid #e8edff;
+  cursor: default;
+}
+#Table tr:hover td {
+  color: #339;
+  background: #eff2ff;
+}
+
+/* prevent color changing for links */
+
+#Table tr td a,
+#Table tr td a:visited {
+  color: blue;
+}
+
+
+/* table for application info */
+
+#hTable {
+  margin-top: 24px;
+  border-collapse: collapse;
+}
+#hTable th {
+  text-align: right;
+  color: #039;
+}
+#hTable td {
+  padding: 10px 15px;
+  color: #669;
+  border-bottom: 1px solid #e8edff;	
+}
+#hTable td.editable {
+  padding: 0 15px;
+}
+#hTable td input {
+  font-size: 1.2em;
+  border: 0;
+  border-bottom: 1px solid #aaaaff;
+}
+#hTable td.bless,
+#hTable td.button {
+  border: 0;
+}
+#hTable td.button {
+  padding-top: 24px;
+}
+#hTable th.buttomline {
+  border-bottom: 1px solid #e8edff;
+}
+
+  .embedView {
+    padding-left: 24px;
+  }
+
+
 </style>
 </head>
 <body>
@@ -151,6 +234,7 @@
   <!-- Header :: buttons & loading animation //-->
   <div class="header">
       <button class="btn" data-bind="click: About">About</button>
+      <button class="btn" data-bind="click: Configure">Configure</button>
       <button class="btn" data-bind="click: CA">CA</button>
       <button class="btn" data-bind="click: Client">Client</button>
       <button class="btn" data-bind="click: PKCS">PKCS</button>
@@ -177,21 +261,76 @@
        <a href="https://gist.github.com/mtigas"
           title="About user mtigas on GitHub">mtigas</a>.
     </p>
-    <h2>Promises</h2>
-    <p>The service was created by a sysadmin for the sysadmins.
-       That's means, no information will be stored on a server side.
-       Any piece of data you entered will be sent to the server 
-       and computed via the 
-       <a href="http://www.openssl.org/" title="OpenSSL homepage">openssl</a>
-       command, and the results will be returned back to you 
-       (a browser client) as soon as possible.</p>
-    <p>Every piece of information you received from the server 
-       you have to save on your computer immediately. 
-       Otherwise, no one helps you to restore a data.</p>
+    <h2>Goals</h2>
+    <ul>
+      <li>Provide a service to managing OpenSSL certificates.</li>
+      <li>An integration with the
+        <a href="http://www.nginx.org" title="nginx website">nginx</a>
+        project.</li>
+      <li>An interface to send a client certificate via email.</li>
+    </ul>
     <h2>Development</h2>
     <p>This is an open source project. Please, checkout sources
       <a href="https://github.com/gh0stwizard/plcrtd"
          title="plcrtd on GitHub">here</a>.</p>
+  </div>
+  
+  <!-- Configuration Page //-->
+  <div class="Page" data-bind="visible: onConfigure()">
+    <h2>Databases</h2>
+    <button class="btn" data-bind="click: tUpdateDB">Create DB</button>
+    <button class="btn" data-bind="click: tWipeDBs">Wipe DBs</button>
+    <div class="embedView" data-bind="visible: onUpdateDB()">
+      <table id="hTable">
+        <colgroup><col width="15%"></col></colgroup>
+        <tbody>
+          <tr>
+            <th>Name</th>
+            <td class="editable"><input data-bind="value: dbname" /></td>
+          </tr>
+          <tr>
+            <th>Description</th>
+            <td class="editable"><input data-bind="value: dbdesc" /></td>
+          </tr>
+          <tr>
+            <td class="button">&nbsp;</td>
+            <td class="button">
+              <button class="btn" data-bind="click: UpdateDBbtn">Submit</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="embedView" data-bind="visible: onWipeDBs()">
+      <h3>Attention!</h3>
+      <p>By pressing submit button you are accept to wipe 
+         all databases from the server.</p>
+      <button class="btn" data-bind="click: WipeDBbtn">Submit</button>
+    </div>
+    <div class="embedView" data-bind="visible: onDBTable() == true && DBList().length > 0">
+      <table id="Table">
+        <colgroup><col width="15%"><col width="50%"><col><col><col><col></colgroup>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th colspan="3">&nbsp;</th>
+          </tr>
+        </thead>
+        <tbody data-bind="foreach: DBList">
+          <tr>
+            <td data-bind="text: $data.name"></td>
+            <td data-bind="text: $data.desc"></td>
+            <td data-bind="text: $data.open"></td>
+            <td><a href="#" data-bind="click: $root.openDB" title="Open">Open</a></td>
+            <td><a href="#" data-bind="click: $root.editDB" title="Edit">Edit</a></td>
+            <td><a href="#" data-bind="click: $root.removeDB" title="Remove">Remove</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <h2>Settings</h2>
   </div>
 
   <!-- Certificate Authority Page //-->
@@ -392,6 +531,50 @@
     self.onPKCS = ko.observable();
 
 
+    self.onConfigure = ko.observable();
+    self.onUpdateDB = ko.observable();
+    self.onWipeDBs = ko.observable();
+
+    self.dbname = ko.observable();
+    self.dbdesc = ko.observable();
+    self.dbopen = ko.observable();
+    self.DBList = ko.observableArray( [ ] );
+    self.onDBTable = ko.observable( false );
+    
+    self.isUpdate = ko.observable( false );
+    
+    self.tUpdateDB = function () {
+      self.dbname( null );
+      self.dbdesc( null );
+    
+      self.onWipeDBs( false );
+      self.onDBTable( false );
+      
+      if ( self.onUpdateDB() ) {
+        self.onUpdateDB( false );
+        self.onDBTable( true );
+        self.isUpdate( true );
+      } else {
+        self.onUpdateDB( true );
+        self.onDBTable( false );
+        self.isUpdate( false );
+      }
+      
+      return false;
+    }
+    
+    self.tWipeDBs = function () {
+      self.onUpdateDB( false );
+      self.onDBTable( false );
+
+      if ( self.onWipeDBs() ) {
+        self.onWipeDBs( false );
+        self.onDBTable( true );
+      } else {
+        self.onWipeDBs( true );
+      }
+    }    
+
     self.inCAPassword = ko.observable();
     self.inCABits = ko.observable();
     self.inCADays = ko.observable();
@@ -458,6 +641,8 @@
     self.CA     = function () { location.hash = 'ca';     }
     self.Client = function () { location.hash = 'client'; }
     self.PKCS   = function () { location.hash = 'pkcs';   }
+    
+    self.Configure = function () { location.hash = 'configure'; }
 
     /*  http://caniuse.com/download  */
 
@@ -719,6 +904,42 @@
     }    
 */    
 
+    self.UpdateDBbtn = function () {
+      if ( self.isUpdate() ) {
+        /*  edit  */
+        var index = self.DBList.indexOf( self.dbname() );
+        console.log( index );
+      } else {
+        /*  create  */
+        self.DBList.push( { name: self.dbname(),
+                            desc: self.dbdesc(),
+                            open: false } );        
+      }
+      
+      self.tUpdateDB();
+    }
+
+    self.WipeDBbtn = function () {
+      
+    }
+    
+    self.openDB = function () {
+      this.open = this.open ? false : true; 
+    }
+    
+    self.editDB = function () {
+      self.tUpdateDB();
+      self.isUpdate( true );
+      self.dbname( this.name );
+      self.dbdesc( this.desc );
+      self.dbopen( this.open );
+    }
+    
+    self.removeDB = function () {
+      self.DBList.remove( this );
+    }
+
+
     /*  Helpers  */
 
     function cleanAll () {
@@ -728,6 +949,7 @@
       self.onCA( false );
       self.onClient( false );
       self.onPKCS( false );
+      self.onConfigure( false );      
     }
 
     function clearError () {
@@ -832,6 +1054,12 @@
       self.inPKCSClientPwd() ? "" : self.inPKCSClientPwd( 'test' );
       self.convP12Ready( true );
     }
+    
+    function configurePage () {
+      cleanAll();
+      self.onConfigure( true );
+    }
+    
 
     /*  Setup routers  */
 
@@ -849,6 +1077,9 @@
           break;
         case 'pkcs':
           pkcsPage();
+          break;
+        case 'configure':
+          configurePage();
           break;
         default:
           mainPage();
