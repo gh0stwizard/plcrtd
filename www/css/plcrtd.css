@@ -1,0 +1,208 @@
+html, body, button, p, input, select {
+  font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+  font-size: 1.0em;
+}
+
+textarea {
+  font-family: "Lucida Console", Monaco, monospace;
+  font-size: 1.0em;
+  border: 0;
+}
+  
+table {
+  width: 100%;
+}
+
+/*  http://css3buttongenerator.com  */
+
+.btn {
+  color: #ffffff;
+  font-size: 0.85em;
+  background: #16167a;
+  padding: 7px 20px 7px 20px;
+  text-decoration: none;
+  border: 0;
+}
+.btn:hover {
+  background: #339955;
+}
+
+/* http://stackoverflow.com/questions/3759692/css-selector-for-disabled-input-type-submit */
+
+input[type=submit]:disabled.btn,
+button:disabled.btn {
+  background: #993355;
+}
+
+/*  Error message  */
+
+.errorBox p {
+  text-align: center;
+  font-size: 1.4em;
+  font-weight: bolder;
+}
+
+.content {
+  left: 0;
+  right: 0;
+  width: 90%;
+  margin: 0 auto;
+  max-width: 1024px;
+}
+
+/*  Header  */
+
+.header button {
+  margin-left: 18px;
+}
+.header img {
+  height: 24px;
+  width: 24px;
+  float: right;
+  vertical-align: middle;
+}
+
+/*  Pages  */
+
+.aboutPage,
+.caPage,
+.clientPage,
+.pkcsPage,
+.Page {
+  padding-top: 22px;
+}
+
+/*  About  */
+
+.aboutPage {
+  padding-left: 10px;
+}
+
+/* Text data container */
+
+.boxContainer {
+  display: flex;
+}
+
+.boxOutput {
+  border: 1px solid black;
+}
+  
+.boxInput {
+  display: table-cell;
+  border: 1px solid #029;
+}
+
+.boxButtonsContainer {
+  display: inline;
+  padding-top: 16px;
+  padding-left: 12px;
+}
+.boxButtonsContainer button {
+  margin: 12px 0;
+  width: 120px;
+}
+
+.boxSetup {
+  padding-top: 5px;
+  padding-bottom: 15px;
+}
+.boxSetup p {
+  display: inline;
+  padding-right: 12px;
+  color: #039;
+}
+.boxSetup select {
+  border: 1px solid #029;
+}
+.boxSetup input {
+  border: 0;
+  border-bottom: 1px solid #029;
+}
+.boxSetup input.file {
+  border: 1px solid #029;
+}
+
+/*  Footer  */
+
+.footer {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+
+/* 
+ * Table style from
+ *   http://www.smashingmagazine.com/2008/08/13/top-10-css-table-designs/
+ */
+
+#Table {
+  font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+  font-size: 1.0em;
+  margin-top: 15px;
+  text-align: left;
+  border-collapse: collapse;
+}
+#Table th, #AppTable th {
+  font-size: 1.2em;
+  font-weight: normal;
+  padding: 12px 15px;
+  color: #039;
+  text-align: left;
+}
+#Table td {
+  padding: 10px 15px;
+  color: #669;
+  border-top: 1px solid #e8edff;
+  cursor: default;
+}
+#Table tr:hover td {
+  color: #339;
+  background: #eff2ff;
+}
+
+/* prevent color changing for links */
+
+#Table tr td a,
+#Table tr td a:visited {
+  color: blue;
+}
+
+
+/* table for application info */
+
+#hTable {
+  margin-top: 24px;
+  border-collapse: collapse;
+}
+#hTable th {
+  text-align: right;
+  color: #039;
+}
+#hTable td {
+  padding: 10px 15px;
+  color: #669;
+  border-bottom: 1px solid #e8edff;	
+}
+#hTable td.editable {
+  padding: 0 15px;
+}
+#hTable td input {
+  font-size: 1.2em;
+  border: 0;
+  border-bottom: 1px solid #aaaaff;
+}
+#hTable td.bless,
+#hTable td.button {
+  border: 0;
+}
+#hTable td.button {
+  padding-top: 24px;
+}
+#hTable th.buttomline {
+  border-bottom: 1px solid #e8edff;
+}
+
+.embedView {
+  padding-left: 24px;
+}
