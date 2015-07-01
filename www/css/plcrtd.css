@@ -64,18 +64,8 @@ button:disabled.btn {
 
 /*  Pages  */
 
-.aboutPage,
-.caPage,
-.clientPage,
-.pkcsPage,
 .Page {
-  padding-top: 22px;
-}
-
-/*  About  */
-
-.aboutPage {
-  padding-left: 10px;
+  padding-top: 24px;
 }
 
 /* Text data container */
@@ -205,4 +195,11 @@ button:disabled.btn {
 
 .embedView {
   padding-left: 24px;
+}
+
+input.wide {
+  font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+  font-size: 1.0em;
+  border: 0;
+  width: 100%;
 }

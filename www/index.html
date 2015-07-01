@@ -23,15 +23,10 @@
   <div class="header">
       <button class="btn" data-bind="click: About">About</button>
       <button class="btn" data-bind="click: Configure">Configure</button>
-      <button class="btn" data-bind="">Private keys</button>
-      <button class="btn" data-bind="">Requests</button>
-      <button class="btn" data-bind="">Certificates</button>
-      <button class="btn" data-bind="">Revoked</button>
-      <!--
-      <button class="btn" data-bind="click: CA">CA</button>
-      <button class="btn" data-bind="click: Client">Client</button>
-      <button class="btn" data-bind="click: PKCS">PKCS</button>
-      //-->
+      <button class="btn" data-bind="click: PrivateKeys">Private keys</button>
+      <button class="btn" data-bind="click: Requests">Requests</button>
+      <button class="btn" data-bind="click: Certificates">Certificates</button>
+      <button class="btn" data-bind="click: Revoked">Revoked</button>
       <!-- http://spiffygif.com //-->
       <img src="/img/spiffygif.gif" alt="Loading"
            data-bind="visible: onAJAX()" />
@@ -44,7 +39,7 @@
   </div>
 
   <!-- About page //-->
-  <div class="aboutPage" data-bind="visible: onAbout()">
+  <div class="Page" data-bind="visible: onAbout()">
     <h1>The plcrtd project: OpenSSL Certificate Manager</h1>
     <h2>Description</h2>
     <p>This is an online web certificate manager implemented
@@ -71,220 +66,108 @@
   
   <!-- Configuration Page //-->
   <div class="Page" data-bind="visible: onConfigure()">
+    <h1>Configuration</h1>
     <h2>Databases</h2>
-    <button class="btn" data-bind="click: tUpdateDB">Create DB</button>
-    <button class="btn" data-bind="click: tWipeDBs">Wipe DBs</button>
-    <div class="embedView" data-bind="visible: onUpdateDB()">
+    <button class="btn" data-bind="click: btnCreateDB">Create DB</button>
+    <button class="btn" data-bind="click: btnWipeDBs">Wipe DBs</button>
+    <div class="embedView" data-bind="visible: onCreateDB()">
+      <form id="dbForm" data-bind="submit: CreateDB">
       <table id="hTable">
         <colgroup><col width="15%"></col></colgroup>
-        <tbody>
+        <tbody data-bind="with: DB">
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: dbname, enable: !isUpdate()" /></td>
+            <td class="editable"><input data-bind="value: name"/></td>
           </tr>
           <tr>
             <th>Description</th>
-            <td class="editable"><input data-bind="value: dbdesc" /></td>
+            <td class="editable"><input data-bind="value: description" /></td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
-              <button class="btn" data-bind="click: UpdateDBbtn">Submit</button>
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn" data-bind="click: $root.btnCreateDB">Cancel</button>
             </td>
           </tr>
         </tbody>
       </table>
+      </form>
     </div>
     <div class="embedView" data-bind="visible: onWipeDBs()">
       <h3>Attention!</h3>
       <p>By pressing submit button you are accept to wipe 
          all databases from the server.</p>
-      <button class="btn" data-bind="click: WipeDBbtn">Submit</button>
+      <button class="btn" data-bind="click: WipeDBs">Submit</button>
+      <button class="btn" data-bind="click: btnWipeDBs">Cancel</button>
     </div>
-    <div class="embedView" data-bind="visible: onDBTable() == true && DBList().length > 0">
+    <div class="embedView" data-bind="visible: onDBTable()">
       <table id="Table">
-        <colgroup><col width="15%"><col width="50%"><col><col><col><col></colgroup>
-        <thead>
+        <colgroup><col width="15%"><col width="80%"><col><col><col></colgroup>
+        <thead data-bind="visible: DBList().length > 0">
           <tr>
             <th>Name</th>
             <th>Description</th>
-            <th>Status</th>
             <th colspan="3">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: DBList">
           <tr>
-            <td data-bind="text: $data.name"></td>
-            <td data-bind="text: $data.desc"></td>
-            <td data-bind="text: $data.open"></td>
-            <td><a href="#" data-bind="click: $root.openDB" title="Open">Open</a></td>
-            <td><a href="#" data-bind="click: $root.editDB" title="Edit">Edit</a></td>
+            <td data-bind="text: name()"></td>
+            <td data-bind="click: edit">
+            	<span data-bind="visible: !editing(), text: description()"></span>
+            	<input class="wide"
+            	  data-bind="visible: editing, value: description(), hasFocus: editing" />
+            </td>
+            <td><a href="#" data-bind="click: $root.ActivateDB, visible: ! isActive()" 
+                   title="Activate">Activate</a></td>
+            <td><a href="#" data-bind="click: $root.UpdateDB" title="Update">Update</a></td>
             <td><a href="#" data-bind="click: $root.removeDB" title="Remove">Remove</a></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <h2>Settings</h2>
-  </div>
-
-  <!-- Certificate Authority Page //-->
-  <div class="caPage" data-bind="visible: onCA()">
-    <h3>Certificate Authority key</h3>
-    <div class="boxSetup">
-      <p>Password
-      <input size="32" data-bind="value: inCAPassword" /></p>
-      <p>Bits
-      <select data-bind="options: bitsOptions, value: inCABits"></select></p>
-    </div>
-    <div class="boxContainer">
-      <div class="boxOutput">
-        <textarea rows="10" cols="66" data-bind="value: outCAkey"></textarea>
-      </div>
-      <div class="boxButtonsContainer">
-        <button class="btn"
-                data-bind="click: genCAkey, enable: genCAkeyReady()">Get!</button>
-        <br />
-        <button class="btn"
-          data-bind="click: save.bind( $data, 'ca.key', outCAkey() ),
-                     visible: outCAkey() && browserCheck()">Save</button>
-      </div>
-    </div>
-    <h3>Certificate Authority certificate</h3>
-    <p>Please, provide the same password above as you've used for key generation.</p>
-    <div class="boxSetup">
-      <p>Subject
-      <input size="42" class="subj" data-bind="value: inCASubject" /></p>
-      <p>Days
-      <input size="4" data-bind="value: inCADays" /></p>
-    </div>
-    <div class="boxContainer">
-      <div class="boxOutput">
-        <textarea rows="10" cols="66" data-bind="value: outCAcrt"></textarea>
-      </div>
-      <div class="boxButtonsContainer">
-        <button class="btn" data-bind="click: genCAcrt, enable: genCAcrtReady()">Get!</button>
-        <br />
-        <button class="btn"
-          data-bind="click: save.bind( $data, 'ca.crt', outCAcrt() ),
-                     visible: outCAcrt() && browserCheck()">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Client Page //-->
-  <div class="clientPage" data-bind="visible: onClient()">
-    <h3>Client Certificate key</h3>
-    <div class="boxSetup">
-      <p>Password
-      <input size="32" data-bind="value: inClientPassword" /></p>
-      <p>Bits
-      <select data-bind="options: bitsOptions, value: inClientBits"></select></p>
-    </div>
-    <div class="boxContainer">
-      <div class="boxOutput">
-        <textarea rows="10" cols="66" data-bind="value: outClientKey"></textarea>
-      </div>
-      <div class="boxButtonsContainer">
-        <button class="btn"
-                data-bind="click: genClientKey, enable: genClientKeyReady()">Get!</button>
-        <br />
-        <button class="btn"
-          data-bind="click: save.bind( $data, 'client.key', outClientKey() ),
-                     visible: outClientKey() && browserCheck()">Save</button>
-      </div>
-    </div>
-    <h3>Client Certificate request</h3>
-    <p>Please, provide the same password above as you've used for key generation.</p>
-    <div class="boxSetup">
-      <p>Subject
-      <input size="42" class="subj" data-bind="value: inClientSubject" /></p>
-    </div>
-    <div class="boxContainer">
-      <div class="boxOutput">
-        <textarea rows="10" cols="66" data-bind="value: outClientCsr"></textarea>
-      </div>
-      <div class="boxButtonsContainer">
-        <button class="btn"
-                data-bind="click: genClientCsr,
-                          enable: genClientCsrReady()">Get!</button>
-        <br />
-        <button class="btn"
-          data-bind="click: save.bind( $data, 'client.csr', outClientCsr() ),
-                     visible: outClientCsr() && browserCheck()">Save</button>
-      </div>
-    </div>
-    <h3>Client Certificate (self-signed)</h3>
-    <div class="boxSetup">
-      <p>CA key</p>
-      <div class="boxInput">
-        <textarea rows="10" cols="66" data-bind="value: inClientCAkey"></textarea>
-      </div>
-      <p>CA certificate</p>
-      <div class="boxInput">
-        <textarea rows="10" cols="66" data-bind="value: inClientCAcrt"></textarea>
-      </div>
-      <p>CA password
-      <input size="32" data-bind="value: inClientCAPassword" /></p>
-      <p>Days
-      <input size="4" data-bind="value: inClientDays" /></p>
-      <p>Serial
-      <input size="4" data-bind="value: inClientSerial" /></p>
-    </div>
-    <div class="boxContainer">
-      <div class="boxOutput">
-        <textarea rows="10" cols="66" data-bind="value: outClientCrt"></textarea>
-      </div>
-      <div class="boxButtonsContainer">
-        <button class="btn"
-                data-bind="click: genClientCrt,
-                          enable: genClientCrtReady()">Get!</button>
-        <br />
-        <button class="btn"
-          data-bind="click: save.bind( $data, 'client.crt', outClientCrt() ),
-                     visible: outClientCrt() && browserCheck()">Save</button>
-      </div>
+    <h2 data-bind="visible: DBsetup">Settings</h2>
+    <div class="embedView" data-bind="visible: DBsetup">
+      <form id="setupForm" data-bind="submit: SetupDB">
+      <table id="hTable">
+        <colgroup><col width="15%"></col></colgroup>
+        <tbody data-bind="with: DBsetup">
+          <tr>
+            <th>CA path</th>
+            <td class="editable"><input data-bind="value: capath"/></td>
+          </tr>
+          <tr>
+            <td class="button">&nbsp;</td>
+            <td class="button"><button class="btn" type="submit">Submit</button></td>
+          </tr>
+        </tbody>
+      </table>
+      </form>
     </div>    
   </div>
-
-  <!-- PKCS Page //-->
-  <div class="pkcsPage" data-bind="visible: onPKCS()">
-    <h3>PKCS#12 file</h3>
-    <div class="boxSetup">
-      <p>Client certificate key</p>
-      <div class="boxInput">
-        <textarea rows="10" cols="66" data-bind="value: inPKCSClientKey"></textarea>
-      </div>
-      <p>Client certificate</p>
-      <div class="boxInput">
-        <textarea rows="10" cols="66" data-bind="value: inPKCSClientCrt"></textarea>
-      </div>
-      <p>Client password
-      <input size="16" data-bind="value: inPKCSClientPwd" /></p>
-      <p>Export password
-      <input size="16" data-bind="value: inPKCSClientXpw" /></p>
-    </div>
-    <div class="boxContainer">
-      <button class="btn" data-bind="click: genP12, enable: genP12Ready()">Get!</button>
-    </div>
-    <h3>Convert PKCS#12 to PEM</h3>
-    <form action="/plcrtd" enctype="multipart/form-data" method="post">
-    <div class="boxSetup">
-      <p>PKCS#12 file
-      <input type="file" class="file" name="p12" /></p>
-      <br />
-      <p>Password
-      <input size="32" name="pwd" data-bind="value: inPKCSpemPwd" /></p>
-    </div>
-    <div class="boxContainer">
-      <input type="hidden" name="action" value="convP12" />
-      <input type="submit" class="btn" value="Get!" />
-    </div>
-    </form>
+  
+  <!-- Private Keys Page //-->
+  <div class="Page" data-bind="visible: onPrivateKeys()">
+    <h1>Private keys</h1>
+  </div>
+  
+  <!-- Requests Page //-->
+  <div class="Page" data-bind="visible: onRequests()">
+    <h1>Certificate signing requests</h1>
+  </div>
+  
+  <!-- Certificates Page //-->
+  <div class="Page" data-bind="visible: onCertificates()">
+    <h1>Certificates</h1>
+  </div>
+  
+  <!-- Revoked Page //-->
+  <div class="Page" data-bind="visible: onRevoked()">
+    <h1>Revocation lists</h1>
   </div>
 
   <div class="footer"></div>
-
-  <iframe style="display: none" id="hframe"></iframe>
 </div>
 </body>
 </html>
