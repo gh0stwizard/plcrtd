@@ -113,7 +113,7 @@ sub daemonize() {
 sub xrun() {
   my $rv;
   my $file = $options{ 'backend' };
-
+  
   if ( $rv = do $file ) {
     return;
   }
@@ -287,6 +287,12 @@ sub set_env() {
 # Logger is configured via environment variables.
 #
 sub set_logger() {
+  # silence mode
+  if ( exists $options{ 'quiet' } ) {
+    $ENV{ 'PERL_ANYEVENT_LOG' } = 'log=nolog';
+    return;
+  }
+
   my $loglevel = 'filter=note';    # default log level 'notice'
   my $output = 'log=';             # print to stdout by default
   # disables notifications from AnyEvent(?::*) modules
@@ -298,33 +304,28 @@ sub set_logger() {
   }
   
   if ( exists $options{ 'verbose' } ) {
+    $suppress = '';
     $loglevel = 'filter=trace';
   }
 
   # setup output device: stdout, logfile or syslog
 
   if ( exists $options{ 'logfile' } ) {
-    $output = sprintf "log=file=%s", $options{ 'logfile' };
+    $output = sprintf( "log=file=%s", $options{ 'logfile' } );
   }
 
   if ( exists $options{ 'enable-syslog' } ) {
     my $facility = $options{ 'syslog-facility' } || 'LOG_DAEMON';
-    $output = sprintf "log=syslog=%s", $facility;
+    $output = sprintf( "log=syslog=%s", $facility );
   }
   
-  # silence mode
-  if ( exists $options{ 'quiet' } ) {
-    $output = '+log=nolog';
-  } else {  
-    if ( exists $options{ 'background' } ) {
-      # disables logging when running in background
-      # and are not using logfile or syslog
-      unless ( 
-          exists $options{ 'logfile' }
-       || exists $options{ 'enable-syslog' } )
-      {
-        $output = '+log=nolog';
-      }
+  if ( exists $options{ 'background' } ) {
+    # disables logging when running in background
+    # and are not using logfile or syslog
+    unless ( exists $options{ 'logfile' }
+          || exists $options{ 'enable-syslog' } )
+    {
+      $output = '+log=nolog';
     }
   }
 
