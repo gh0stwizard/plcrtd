@@ -68,81 +68,74 @@
   <div class="Page" data-bind="visible: onConfigure()">
     <h1>Configuration</h1>
     <h2>Databases</h2>
-    <button class="btn" data-bind="click: btnCreateDB">Create DB</button>
-    <button class="btn" data-bind="click: btnWipeDBs">Wipe DBs</button>
-    <div class="embedView" data-bind="visible: onCreateDB()">
-      <form id="dbForm" data-bind="submit: CreateDB">
+    <button class="btn" data-bind="click: cfg.CreateToggle">Create DB</button>
+    <button class="btn" data-bind="click: cfg.WipeToggle">Wipe DBs</button>
+    <div class="embedView" data-bind="visible: cfg.onCreate()">
+      <form id="dbForm" data-bind="submit: cfg.Create">
       <table id="hTable">
         <colgroup><col width="10%"></col></colgroup>
-        <tbody data-bind="with: DB">
+        <tbody data-bind="with: cfg.Item">
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: name"/></td>
+            <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
             <th>Description</th>
-            <td class="editable"><input data-bind="value: description" /></td>
+            <td class="editable"><input data-bind="value: Description" /></td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.btnCreateDB">Cancel</button>
+              <button class="btn" data-bind="click: $root.cfg.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
       </table>
       </form>
     </div>
-    <div class="embedView" data-bind="visible: onWipeDBs()">
+    <div class="embedView" data-bind="visible: cfg.onWipe()">
       <h3>Attention!</h3>
       <p>By pressing submit button you are accept to wipe 
          all databases from the server.</p>
-      <button class="btn" data-bind="click: WipeDBs">Submit</button>
-      <button class="btn" data-bind="click: btnWipeDBs">Cancel</button>
+      <button class="btn" data-bind="click: cfg.Wipe">Submit</button>
+      <button class="btn" data-bind="click: cfg.WipeToggle">Cancel</button>
     </div>
-    <div class="embedView" data-bind="visible: onDBTable()">
+    <div class="embedView" data-bind="visible: cfg.onTable()">
       <table id="Table">
-        <colgroup><col width="15%"><col width="80%"><col><col><col></colgroup>
-        <thead data-bind="visible: DBList().length > 0">
+        <colgroup><col width="15%"><col width="80%"><col><col></colgroup>
+        <thead data-bind="visible: cfg.List().length > 0">
           <tr>
             <th>Name</th>
             <th>Description</th>
-            <th colspan="3">&nbsp;</th>
+            <th colspan="2">&nbsp;</th>
           </tr>
         </thead>
-        <tbody data-bind="foreach: DBList">
+        <tbody data-bind="foreach: cfg.List">
           <tr>
-            <td data-bind="text: name()"></td>
+            <td data-bind="text: Name"></td>
             <td data-bind="click: edit">
-            	<span data-bind="visible: !editing(), text: description()"></span>
+            	<span data-bind="visible: !editing(), text: Description"></span>
             	<input class="wide"
-            	  data-bind="visible: editing, value: description(), hasFocus: editing" />
+            	  data-bind="visible: editing, value: Description, hasFocus: editing" />
             </td>
-            <td><a href="#" data-bind="click: $root.ActivateDB, visible: ! isActive()" 
+            <td><a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
                    title="Activate">Activate</a></td>
-            <td><a href="#" data-bind="click: $root.UpdateDB" title="Update">Update</a></td>
-            <td><a href="#" data-bind="click: $root.RemoveDB" title="Remove">Remove</a></td>
+            <td><a href="#" data-bind="click: $root.cfg.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <h2 data-bind="visible: DBsetup">Settings</h2>
-    <div class="embedView" data-bind="visible: DBsetup">
-      <form id="setupForm" data-bind="submit: SetupDB">
+    <h2 data-bind="visible: cfg.Settings">Settings</h2>
+    <div class="embedView" data-bind="visible: cfg.Settings">
+      <form id="setupForm" data-bind="submit: cfg.Setup">
       <table id="hTable">
         <colgroup><col width="15%"></col></colgroup>
-        <tbody data-bind="with: DBsetup">
+        <tbody data-bind="with: cfg.Settings">
           <tr>
             <th>Database</th>
-            <td data-bind="text: dbname"></td>
+            <td data-bind="text: Name"></td>
           </tr>
-          <!--
-          <tr>
-            <th>CA path</th>
-            <td class="editable"><input data-bind="value: capath"/></td>
-          </tr>
-          //-->
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button"><button class="btn" type="submit">Submit</button></td>
@@ -156,63 +149,63 @@
   <!-- Private Keys Page //-->
   <div class="Page" data-bind="visible: onPrivateKeys()">
     <h1>Private keys</h1>
-    <button class="btn" data-bind="click: btnCreatePK">Create PK</button>
-    <button class="btn" data-bind="click: btnWipePKs">Wipe PKs</button>
-    <div class="embedView" data-bind="visible: onCreatePK()">
-      <form id="pkForm" data-bind="submit: CreatePK">
+    <button class="btn" data-bind="click: pk.CreateToggle">Create PK</button>
+    <button class="btn" data-bind="click: pk.WipeToggle">Wipe PKs</button>
+    <div class="embedView" data-bind="visible: pk.onCreate()">
+      <form id="pkForm" data-bind="submit: pk.Create">
       <table id="hTable">
         <colgroup><col width="10%"><col></colgroup>
-        <tbody data-bind="with: PK">
+        <tbody data-bind="with: pk.Item">
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: name"/></td>
+            <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
             <th>Type</th>
             <td class="editable">
-              <select data-bind="options: pkOptions, value: type"></select>
+              <select data-bind="options: pkOptions, value: Type"></select>
             </td>
           </tr>
           <tr>
             <th>Size</th>
             <td class="editable">
-              <select data-bind="options: sizeOptions, value: size"></select>
+              <select data-bind="options: sizeOptions, value: Size"></select>
             </td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.btnCreatePK">Cancel</button>
+              <button class="btn" data-bind="click: $root.pk.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
       </table>
       </form>
     </div>
-    <div class="embedView" data-bind="visible: onWipePKs()">
+    <div class="embedView" data-bind="visible: pk.onWipe()">
       <h3>Attention!</h3>
       <p>By pressing submit button you are accept to wipe 
          all private keys from the server.</p>
-      <button class="btn" data-bind="click: WipePKs">Submit</button>
-      <button class="btn" data-bind="click: btnWipePKs">Cancel</button>
+      <button class="btn" data-bind="click: pk.Wipe">Submit</button>
+      <button class="btn" data-bind="click: pk.WipeToggle">Cancel</button>
     </div>
-    <div class="embedView" data-bind="visible: onPKTable()">
+    <div class="embedView" data-bind="visible: pk.onTable()">
       <table id="Table">
         <colgroup><col width="70%"><col><col></colgroup>
-        <thead data-bind="visible: PKList().length > 0">
+        <thead data-bind="visible: pk.List().length > 0">
           <tr>
             <th>Name</th>
             <th>Type</th>
             <th>Size</th>
           </tr>
         </thead>
-        <tbody data-bind="foreach: PKList">
+        <tbody data-bind="foreach: pk.List">
           <tr>
-            <td data-bind="text: name()"></td>
-            <td data-bind="text: type()"></td>
-            <td data-bind="text: size()"></td>
-            <td><a href="#" data-bind="click: $root.RemovePK" title="Remove">Remove</a></td>
+            <td data-bind="text: Name"></td>
+            <td data-bind="text: Type"></td>
+            <td data-bind="text: Size"></td>
+            <td><a href="#" data-bind="click: $root.pk.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>
       </table>
@@ -222,47 +215,47 @@
   <!-- Requests Page //-->
   <div class="Page" data-bind="visible: onRequests()">
     <h1>Certificate signing requests</h1>
-    <button class="btn" data-bind="click: btnCreateRQ">Create CSR</button>
-    <button class="btn" data-bind="click: btnWipeRQs">Wipe CSRs</button>
-    <div class="embedView" data-bind="visible: onCreateRQ()">
-      <form id="csrForm" data-bind="submit: CreateRQ">
+    <button class="btn" data-bind="click: csr.CreateToggle">Create CSR</button>
+    <button class="btn" data-bind="click: csr.WipeToggle">Wipe CSRs</button>
+    <div class="embedView" data-bind="visible: csr.onCreate()">
+      <form id="csrForm" data-bind="submit: csr.Create">
       <table id="hTable">
         <colgroup><col width="10%"><col></colgroup>
-        <tbody data-bind="with: RQ">
+        <tbody data-bind="with: csr.Item">
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: name"/></td>
+            <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.btnCreateRQ">Cancel</button>
+              <button class="btn" data-bind="click: $root.csr.WipeToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
       </table>
       </form>
     </div>
-    <div class="embedView" data-bind="visible: onWipeRQs()">
+    <div class="embedView" data-bind="visible: csr.onWipe()">
       <h3>Attention!</h3>
       <p>By pressing submit button you are accept to wipe 
          all certificate signing requests from the server.</p>
-      <button class="btn" data-bind="click: WipeRQs">Submit</button>
-      <button class="btn" data-bind="click: btnWipeRQs">Cancel</button>
+      <button class="btn" data-bind="click: csr.Wipe">Submit</button>
+      <button class="btn" data-bind="click: csr.WipeToggle">Cancel</button>
     </div>
-    <div class="embedView" data-bind="visible: onRQTable()">
+    <div class="embedView" data-bind="visible: csr.onTable()">
       <table id="Table">
         <colgroup><col width="70%"></colgroup>
-        <thead data-bind="visible: RQList().length > 0">
+        <thead data-bind="visible: csr.List().length > 0">
           <tr>
             <th>Name</th>
           </tr>
         </thead>
-        <tbody data-bind="foreach: RQList">
+        <tbody data-bind="foreach: csr.List">
           <tr>
-            <td data-bind="text: name()"></td>
-            <td><a href="#" data-bind="click: $root.RemoveRQ" title="Remove">Remove</a></td>
+            <td data-bind="text: Name"></td>
+            <td><a href="#" data-bind="click: $root.csr.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>
       </table>
@@ -272,11 +265,101 @@
   <!-- Certificates Page //-->
   <div class="Page" data-bind="visible: onCertificates()">
     <h1>Certificates</h1>
+    <button class="btn" data-bind="click: crt.CreateToggle">Create CRT</button>
+    <button class="btn" data-bind="click: crt.WipeToggle">Wipe CRTs</button>
+    <div class="embedView" data-bind="visible: crt.onCreate()">
+      <form id="crtForm" data-bind="submit: crt.Create">
+      <table id="hTable">
+        <colgroup><col width="10%"><col></colgroup>
+        <tbody data-bind="with: crt.Item">
+          <tr>
+            <th>Name</th>
+            <td class="editable"><input data-bind="value: Name"/></td>
+          </tr>
+          <tr>
+            <td class="button">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn" data-bind="click: $root.crt.WipeToggle">Cancel</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </form>
+    </div>
+    <div class="embedView" data-bind="visible: crt.onWipe()">
+      <h3>Attention!</h3>
+      <p>By pressing submit button you are accept to wipe 
+         all certificates from the server.</p>
+      <button class="btn" data-bind="click: crt.Wipe">Submit</button>
+      <button class="btn" data-bind="click: crt.WipeToggle">Cancel</button>
+    </div>
+    <div class="embedView" data-bind="visible: crt.onTable()">
+      <table id="Table">
+        <colgroup><col width="70%"></colgroup>
+        <thead data-bind="visible: crt.List().length > 0">
+          <tr>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody data-bind="foreach: crt.List">
+          <tr>
+            <td data-bind="text: Name"></td>
+            <td><a href="#" data-bind="click: $root.crt.Remove" title="Remove">Remove</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Revoked Page //-->
   <div class="Page" data-bind="visible: onRevoked()">
-    <h1>Revocation lists</h1>
+    <h1>Certificate revocation lists</h1>
+    <button class="btn" data-bind="click: crl.CreateToggle">Create CRL</button>
+    <button class="btn" data-bind="click: crl.WipeToggle">Wipe CRLs</button>
+    <div class="embedView" data-bind="visible: crl.onCreate()">
+      <form id="crlForm" data-bind="submit: crl.Create">
+      <table id="hTable">
+        <colgroup><col width="10%"><col></colgroup>
+        <tbody data-bind="with: crl.Item">
+          <tr>
+            <th>Name</th>
+            <td class="editable"><input data-bind="value: Name"/></td>
+          </tr>
+          <tr>
+            <td class="button">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn" data-bind="click: $root.crl.WipeToggle">Cancel</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </form>
+    </div>
+    <div class="embedView" data-bind="visible: crl.onWipe()">
+      <h3>Attention!</h3>
+      <p>By pressing submit button you are accept to wipe 
+         all certificate revocation lists from the server.</p>
+      <button class="btn" data-bind="click: crl.Wipe">Submit</button>
+      <button class="btn" data-bind="click: crl.WipeToggle">Cancel</button>
+    </div>
+    <div class="embedView" data-bind="visible: crl.onTable()">
+      <table id="Table">
+        <colgroup><col width="70%"></colgroup>
+        <thead data-bind="visible: crl.List().length > 0">
+          <tr>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody data-bind="foreach: crl.List">
+          <tr>
+            <td data-bind="text: Name"></td>
+            <td><a href="#" data-bind="click: $root.crl.Remove" title="Remove">Remove</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="footer"></div>
