@@ -25,6 +25,7 @@ use JSON::XS qw( encode_json decode_json );
 use Scalar::Util ();
 use HTML::Entities ();
 use Encode qw( decode_utf8 );
+use Local::DB::UnQLite;
 use vars qw( $PROGRAM_NAME );
 
 
@@ -179,7 +180,7 @@ sub do_post($$$$) {
   my $min_pw_len = 4;
   my $max_pw_len = 8192;
 
-  if ( $action eq 'genCAkey' || $action eq 'genClientKey' ) {
+  if ( $action eq 'genkey' ) {
     my $pass = $params->{ 'pass' } || '';
     my $bits = int( $params->{ 'bits' } || 0 );
 
@@ -467,6 +468,19 @@ sub send_error($$;$) {
   $w->close();
 
   return;
+}
+
+
+=item B<switch_db>( $name, $home )
+
+=cut
+
+
+sub switch_db($$) {
+  my ( $name, $home ) = @_;
+  
+  
+  #&Local::DB::UnQLite::set_db_home( $home );
 }
 
 

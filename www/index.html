@@ -73,7 +73,7 @@
     <div class="embedView" data-bind="visible: cfg.onCreate()">
       <form id="dbForm" data-bind="submit: cfg.Create">
       <table id="hTable">
-        <colgroup><col width="10%"></col></colgroup>
+        <colgroup><col width="20%"></col></colgroup>
         <tbody data-bind="with: cfg.Item">
           <tr>
             <th>Name</th>
@@ -82,6 +82,10 @@
           <tr>
             <th>Description</th>
             <td class="editable"><input data-bind="value: Description" /></td>
+          </tr>
+          <tr>
+            <th>Home Directory</th>
+            <td class="editable"><input data-bind="value: Home" /></td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
@@ -114,11 +118,7 @@
         <tbody data-bind="foreach: cfg.List">
           <tr>
             <td data-bind="text: Name"></td>
-            <td data-bind="click: edit">
-            	<span data-bind="visible: !editing(), text: Description"></span>
-            	<input class="wide"
-            	  data-bind="visible: editing, value: Description, hasFocus: editing" />
-            </td>
+            <td data-bind="text: Description"></td>
             <td><a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
                    title="Activate">Activate</a></td>
             <td><a href="#" data-bind="click: $root.cfg.Remove" title="Remove">Remove</a></td>
@@ -130,12 +130,20 @@
     <div class="embedView" data-bind="visible: cfg.Settings">
       <form id="setupForm" data-bind="submit: cfg.Setup">
       <table id="hTable">
-        <colgroup><col width="15%"></col></colgroup>
+        <colgroup><col width="20%"></col></colgroup>
         <tbody data-bind="with: cfg.Settings">
           <tr>
             <th>Database</th>
             <td data-bind="text: Name"></td>
           </tr>
+          <tr>
+            <th>Description</th>
+            <td><input data-bind="value: Description" /></td>
+          </tr>
+          <tr>
+            <th>Home directory</th>
+            <td><input data-bind="value: Home" /></td>
+          </tr>          
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button"><button class="btn" type="submit">Submit</button></td>
@@ -154,7 +162,7 @@
     <div class="embedView" data-bind="visible: pk.onCreate()">
       <form id="pkForm" data-bind="submit: pk.Create">
       <table id="hTable">
-        <colgroup><col width="10%"><col></colgroup>
+        <colgroup><col width="20%"><col></colgroup>
         <tbody data-bind="with: pk.Item">
           <tr>
             <th>Name</th>
@@ -220,7 +228,7 @@
     <div class="embedView" data-bind="visible: csr.onCreate()">
       <form id="csrForm" data-bind="submit: csr.Create">
       <table id="hTable">
-        <colgroup><col width="10%"><col></colgroup>
+        <colgroup><col width="20%"><col></colgroup>
         <tbody data-bind="with: csr.Item">
           <tr>
             <th>Name</th>
@@ -270,7 +278,7 @@
     <div class="embedView" data-bind="visible: crt.onCreate()">
       <form id="crtForm" data-bind="submit: crt.Create">
       <table id="hTable">
-        <colgroup><col width="10%"><col></colgroup>
+        <colgroup><col width="20%"><col></colgroup>
         <tbody data-bind="with: crt.Item">
           <tr>
             <th>Name</th>
@@ -320,7 +328,7 @@
     <div class="embedView" data-bind="visible: crl.onCreate()">
       <form id="crlForm" data-bind="submit: crl.Create">
       <table id="hTable">
-        <colgroup><col width="10%"><col></colgroup>
+        <colgroup><col width="20%"><col></colgroup>
         <tbody data-bind="with: crl.Item">
           <tr>
             <th>Name</th>

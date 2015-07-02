@@ -19,17 +19,14 @@ $( function() {
   }
 
 
-  function Database ( n = 'db', d = 'description' ) {
-    this.Name = ko.observable( n );
-    this.Description = ko.observable( d );
+  function Database ( name = 'db', desc = '', home = '/' ) {
+    this.Name = ko.observable( name );
+    this.Description = ko.observable( desc );
+    this.Home = ko.observable( home );
+
     this.isActive = ko.observable( false );
-    this.editing = ko.observable( false );
-    this.edit = function () { this.editing( true ); }
   }
 
-  function DatabaseSetup ( name ) {
-    this.Name = name;
-  }
 
   function PrivateKey ( name = 'key', type = 'RSA', size = 2048 ) {
     this.Name = ko.observable( name );
@@ -182,11 +179,13 @@ $( function() {
       db.isActive( true );      
       
       /* retrieve settings */
-      this.Settings( new DatabaseSetup( name ) );
+      this.Settings( db );
     }
     
     function SetupDB ( ) {
       /* TODO */
+      var db = this.Settings();
+      
     }
 
     $.extend( self.cfg, {

@@ -48,9 +48,11 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MFeersum \
 -MHTTP::Body \
 -MHTML::Entities \
+-MUnQLite \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \
 --add "../src/app/feersum.pl app/feersum.pl" \
 --add "../src/backend/feersum.pl backend/feersum.pl" \
+--add "../src/modules/Local/DB/UnQLite.pm Local/DB/UnQLite.pm" \
 $@
