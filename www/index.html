@@ -181,6 +181,16 @@
             </td>
           </tr>
           <tr>
+            <th>Cipher</th>
+            <td class="editable">
+              <select data-bind="options: cipherOptions, value: Cipher"></select>
+            </td>
+          </tr>
+          <tr>
+            <th>Password</th>
+            <td class="editable"><input data-bind="value: Password" /></td>
+          </tr>
+          <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
@@ -200,10 +210,11 @@
     </div>
     <div class="embedView" data-bind="visible: pk.onTable()">
       <table id="Table">
-        <colgroup><col width="70%"><col><col></colgroup>
+        <colgroup><col width="70%"><col><col><col></colgroup>
         <thead data-bind="visible: pk.List().length > 0">
           <tr>
             <th>Name</th>
+            <th>Encrypted</td>
             <th>Type</th>
             <th>Size</th>
           </tr>
@@ -211,6 +222,7 @@
         <tbody data-bind="foreach: pk.List">
           <tr>
             <td data-bind="text: Name"></td>
+            <td data-bind="text: Encrypted"></td>
             <td data-bind="text: Type"></td>
             <td data-bind="text: Size"></td>
             <td><a href="#" data-bind="click: $root.pk.Remove" title="Remove">Remove</a></td>

@@ -8,7 +8,8 @@ $( function() {
         'Internal error'
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
-      pkOptions = [ 'RSA', 'DSA' ];
+      pkOptions = [ 'RSA' ],
+      cipherOptions = [ 'DES3', 'AES128', 'AES192', 'AES256' ];
 
 
   function sortByName( a, b ) {
@@ -19,39 +20,70 @@ $( function() {
   }
 
 
-  function Database ( name = 'db', desc = '', home = '/' ) {
-    this.Name = ko.observable( name );
-    this.Description = ko.observable( desc );
-    this.Home = ko.observable( home );
+  function Database ( options ) {
+    this.defaults = { name: 'db', desc: '', home: '/' };
+    options = $.extend( { }, this.defaults, options  );
+    
+    this.Name = ko.observable( options.name );
+    this.Description = ko.observable( options.desc );
+    this.Home = ko.observable( options.home );
 
     this.isActive = ko.observable( false );
   }
 
 
-  function PrivateKey ( name = 'key', type = 'RSA', size = 2048 ) {
-    this.Name = ko.observable( name );
-    this.Type = ko.observable( type );
-    this.Size = ko.observable( size );
+  function PrivateKey ( options ) {
+    this.defaults = {
+      name: 'key',
+      type: 'RSA',
+      size: 2048,
+      cipher: 'AES256',
+      passwd: null
+    };
+    options = $.extend( {}, this.defaults, options );
+    
+    this.Name = ko.observable( options.name );
+    this.Type = ko.observable( options.type );
+    this.Size = ko.observable( options.size );
+    this.Cipher = ko.observable( options.cipher );
+    this.Password = ko.observable( options.passwd );
+    
+    this.Encrypted = ko.pureComputed( {
+      owner: this,
+      read: function ( ) {
+        return ( this.Password() ) ? 'Yes' : 'No';
+      }
+    } );
   }
 
 
-  function Request ( name = 'csr' ) {
+  function Request ( options ) {
+    this.defaults = { name: 'csr' };
+    options = $.extend( {}, this.defaults, options );
+
+    this.Name = ko.observable( options.name );
+  }
+
+  
+  function Certificate ( options ) {
+    this.defaults = { name: 'crt' };
+    options = $( {}, this.defaults, options );
+
     this.Name = ko.observable( name );
   }
 
   
-  function Certificate ( name = 'ca' ) {
+  function RevocationList ( options ) {
+    this.defaults = { name: 'crl' };
+    options = $.extend( {}, this.defaults, options );
+
     this.Name = ko.observable( name );
   }
 
-  
-  function RevocationList ( name = 'crl' ) {
-    this.Name = ko.observable( name );
-  }
 
-
-  function Page ( args = {} ) {
-    this.args = args;
+  function Page ( args ) {
+    this.defaults = { };
+    this.args = $.extend( {}, this.defaults, args );
 
     this.onCreate = ko.observable( false );
     this.onWipe = ko.observable( false );
@@ -199,11 +231,26 @@ $( function() {
 
     self.pk = new Page( {
       CreateItem : function () { return new PrivateKey(); },
-/* TODO
       Create : function () {
-        this.List.push( this.Item() );
-        this.List.sort( sortByName );
-        this.CreateToggle();
+        var iam = this;
+        var key = iam.Item();
+      
+        postJSON( { 
+          action: 'genkey',
+          type: key.Type(),
+          bits: key.Size(),
+          cipher: key.Cipher(),
+          passwd: key.Password()
+        }, function ( response ) {
+          if ( response.key ) {
+            iam.List.push( key );
+            iam.List.sort( sortByName );
+            iam.CreateToggle();
+          } else {
+            self.errorMessage( errors[ response.err ] );
+            self.errorDescription( response.msg );
+          }
+        } );
       },
       Remove : function ( pk ) {
         this.List.remove( pk );
@@ -212,7 +259,6 @@ $( function() {
         this.List.removeAll();
         this.WipeToggle();
       }
-*/
     } );
     
     

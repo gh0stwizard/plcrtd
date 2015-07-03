@@ -170,51 +170,18 @@ sub do_post($$$$) {
   my $params = &get_params( @_ )
     or &send_error( $R, &BAD_REQUEST() ), return;
 
-  my $action = $params->{ 'action' } || '<unknown>';
-  
-  # Check for a length of $pass was added because of
-  # running the command below by a hand does this check.
-  #
-  # No need to call fork() for obvious result.
-
+  my $action = $params->{ 'action' } || '';
   my $min_pw_len = 4;
   my $max_pw_len = 8192;
 
   if ( $action eq 'genkey' ) {
-    my $pass = $params->{ 'pass' } || '';
+    my $type = $params->{ 'type' } || 'RSA';
     my $bits = int( $params->{ 'bits' } || 0 );
+    my $cipher = $params->{ 'cipher' } || '';
+    my $passwd = $params->{ 'passwd' } || '';    
 
-    my $pw_len = length( $pass );
-
-    if ( $pw_len >= $min_pw_len && $pw_len < $max_pw_len && $bits >= 1024 ) {
-      my $cv = run_cmd [
-        qw( openssl genrsa -des3 -passout fd:3 -out /dev/fd/4 ),
-        $bits
-      ],
-        "<", "/dev/null",
-        ">", \my $stdout,
-        "2>", \my $stderr,
-        "3<", \$pass,
-        "4>", \my $key,
-      ;
-
-      $cv->cb( sub {
-        &Scalar::Util::weaken( my $R = $R );
-
-        if ( not shift->recv() ) {
-          my $w = $R->start_streaming( 200, \@HEADER_JSON );
-          $w->write( encode_json( { key => $key } ) );
-          $w->close();
-        } else {
-          AE::log error => "genCAkey:\n$stderr";
-          &send_error( $R, &EINT_ERROR(), $stderr );
-        }
-      } );
-
-    } else {
-      &send_error( $R, &BAD_REQUEST() );
-    }
-
+    &genpkey( $R, $type, $bits, $cipher, $passwd );
+    
   } elsif ( $action eq 'genCAcrt' ) {
     my $key = $params->{ 'key' } || '';
     my $pass = $params->{ 'pass' } || '';
@@ -471,16 +438,133 @@ sub send_error($$;$) {
 }
 
 
-=item B<switch_db>( $name, $home )
+=item B<genpkey>( $feersum, $type, $bits, [ $cipher, $password ] )
+
+Generates a private key.
 
 =cut
 
 
-sub switch_db($$) {
-  my ( $name, $home ) = @_;
+sub genpkey($$$;$$) {
+  my ( $R, $type, $bits, $cipher, $password ) = @_;
+
+
+  my $sslcmd = '';
+  my %types =
+    (
+      'RSA' => 'genrsa',
+      #'DSA' => 'gendsa'
+    )
+  ;
+  my %ciphers = 
+    (
+      'DES3'    => '-des3',
+      'AES128'  => '-aes128',
+      'AES192'  => '-aes192',
+      'AES256'  => '-aes256',
+    )
+  ;
+  my @command = ( 'openssl' );
+  my @fdsetup = 
+    (
+      "<", "/dev/null",
+      ">", \my $stdout,
+      "2>", \my $stderr,
+      "4>", \my $keyout,
+    )
+  ;  
+
+  if ( exists $types{ $type } ) {
+    push @command, $types{ $type };
+  } else {
+    &send_error( $R, &BAD_REQUEST() );
+    return;
+  }
+
+  if ( $cipher && $password ) {
+    if ( exists $ciphers{ $cipher } ) {
+      push @command, $ciphers{ $cipher }, '-passout', 'fd:3';
+      push @fdsetup, "3<", \$password;
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+      return;
+    }
+
+    if ( ! check_password( $password ) ) {
+      &send_error( $R, &BAD_REQUEST() );
+      return;      
+    }
+  }
+
+  if ( $bits >= 1024 ) {
+    push @command, '-out', '/dev/fd/4';
+  } else {
+    &send_error( $R, &BAD_REQUEST() );
+    return;
+  }
   
+  if ( $type eq 'RSA' ) {
+    push @command, $bits;
+  } else {
+    # TODO
+    # using pre-generate dsaparam files?
+    # e.g., openssl dsaparam -out dsaparam2048 -genkey 2048
+    push @command, 'dsaparam' . $bits;
+  }
   
-  #&Local::DB::UnQLite::set_db_home( $home );
+  my $cv = run_cmd [ @command ], @fdsetup;
+
+  $cv->cb( sub {
+    &Scalar::Util::weaken( my $R = $R );
+
+    if ( not shift->recv() ) {
+      my $w = $R->start_streaming( 200, \@HEADER_JSON );
+      $w->write( encode_json( { key => $keyout } ) );
+      $w->close();
+    } else {
+      AE::log error => "genpkey:\n";
+      AE::log error => join ' ', @command;
+      AE::log error => $stderr;
+      &send_error( $R, &EINT_ERROR(), $stderr );
+    }
+  } );
+
+  return;
+}
+
+
+=item B<check_password>( $password )
+
+Checks a password length. By default a minimum is 4 symbols
+and a maximum is 8192 symbols.
+
+Returns true (1) on success, otherwise returns false (0).
+
+=cut
+
+
+{
+  my $min = 4;
+  my $max = 8192;
+
+  # Check for a length of $pass was added because of
+  # running the command below by a hand does this check.
+  #
+  # No need to call fork() for obvious result.
+
+  sub check_password($) {
+    my ( $password ) = @_;
+
+
+    my $length = length( $password || '' );
+    
+    if ( $length >= $min && $length < $max ) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+
 }
 
 
