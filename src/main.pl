@@ -1,41 +1,46 @@
 #!/usr/bin/perl
 
+# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+#
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
 
 
 use strict;
+use common::sense;
+use vars qw( $PROGRAM_NAME $VERSION );
 use POSIX ();
 use Cwd ();
 use Getopt::Long qw( :config no_ignore_case bundling );
 use File::Spec::Functions ();
-use vars qw( $PROGRAM_NAME $VERSION );
+use File::Path ();
 
 
-$PROGRAM_NAME = "plcrtd"; $VERSION = '0.02';
+$PROGRAM_NAME = "plcrtd"; $VERSION = '0.03';
 
 
 my $retval = GetOptions
-(
-  \my %options,
-  'help|h',             # print help page and exit
-  'version',            # print program version and exit
-  'debug',              # enables verbose logging
-  'verbose',            # enables very verbose logging
-  'pidfile|P=s',        # pid file ( optional )
-  'home|H=s',           # chdir to home directory before fork
-  'background|B',       # run in background
-  'logfile|L=s',        # log file ( optional )
-  'enable-syslog',      # enable logging via syslog
-  'syslog-facility=s',  # syslog facility
-  'quiet|q',            # enable silence mode (no log at all)
-  'listen|l=s',         # listen on IP:PORT
-  'backend|b=s',        # backend: feersum
-  'app|a=s',            # application file
-);
+  (
+    \my %options,
+    'help|h',             # print help page and exit
+    'version',            # print program version and exit
+    'debug',              # enables verbose logging
+    'verbose',            # enables very verbose logging
+    'pidfile|P=s',        # pid file ( optional )
+    'home|H=s',           # chdir to home directory before fork
+    'background|B',       # run in background
+    'logfile|L=s',        # log file ( optional )
+    'enable-syslog',      # enable logging via syslog
+    'syslog-facility=s',  # syslog facility
+    'quiet|q',            # enable silence mode (no log at all)
+    'listen|l=s',         # listen on IP:PORT
+    'backend|b=s',        # backend: feersum
+    'app|a=s',            # application file
+    'workdir|W=s',        # working directory
+  )
+;
 
-# sets  $\ = "\n"
-&os_fixes();
+local $\ = "\n";
 
 if ( defined $retval and !$retval ) {
   # unknown option workaround for GetOpt::Long module
@@ -46,20 +51,20 @@ if ( defined $retval and !$retval ) {
 } elsif ( exists $options{ 'version' } ) {
   &print_version();
 } else {
-  #*Cwd::_carp = sub { print STDERR @_ };
+  &set_modules_path();
   &run_program();
 }
 
 exit 0;
 
+
 # ---------------------------------------------------------------------
 
-#
-# OS-specific adjustments and fixes
-#
-sub os_fixes() {
-  $\ = "\n";
 
+#
+# Adds modules path to @INC when needed.
+#
+sub set_modules_path() {
   if ( $0 ne '-e' ) {
     # Fix for modules. Perl is able now loading program-specific
     # modules from directory where file main.pl is placed w/o "use lib".
@@ -67,7 +72,7 @@ sub os_fixes() {
     my $mod_dir = "modules";
     unshift @INC, &File::Spec::Functions::rel2abs( $mod_dir, $basedir );
   }
-  
+
   return;
 }
 
@@ -76,7 +81,7 @@ sub os_fixes() {
 #
 sub run_program() {
   &set_default_options();
-  &fix_paths();
+  &set_default_paths();
   &set_abs_paths();
   &set_env();
   &set_logger();
@@ -104,7 +109,7 @@ sub daemonize() {
   defined( my $pid = fork() )  || die "Can't fork: $!";
   exit if ( $pid );
   ( &POSIX::setsid() != -1 )   || die "Can't setsid: $!";
-  open( STDERR, ">&STDOUT" )   || die "Can't dup stdout: $!";
+  open( STDERR, ">&STDOUT" )   || die "Can't dup stderr: $!";
 }
 
 #
@@ -146,16 +151,16 @@ sub check_pidfile() {
 #
 # sets relative paths for files and adds extention to file names
 #
-sub fix_paths() {
+sub set_default_paths() {
   my $file_ext = 'pl';
   my %relpaths =
     (
       # option      relative path
       'backend'	=> 'backend',
-      'app'	=> 'app',
+      'app'	    => 'app',
     )
   ;
-  
+
   if ( $0 eq '-e' ) {
     # staticperl uses relative paths (vfs)
     for my $option ( keys %relpaths ) {
@@ -163,24 +168,30 @@ sub fix_paths() {
       my $filename = join '.', $options{ $option }, $file_ext;
 
       $options{ $option } = &File::Spec::Functions::catfile
-      (
-        $relpath,
-        $filename,
-      );
+        (
+          $relpath,
+          $filename,
+        )
+      ;
     }
-  } else {  
+  } else {
+    my $basedir = &get_program_basedir();
+    
     for my $option ( keys %relpaths ) {
       my $relpath = $relpaths{ $option };
       my $filename = join '.', $options{ $option }, $file_ext;
 
       $options{ $option } = &File::Spec::Functions::catfile
-      (
-        &get_program_basedir(),
-        $relpath,
-        $filename,
-      );
+        (
+          $basedir,
+          $relpath,
+          $filename,
+        )
+      ;
     }
   }
+  
+  return;
 }
 
 #
@@ -195,8 +206,7 @@ sub get_program_basedir() {
       $execp = &Cwd::abs_path( "/proc/self/exe" );
     } else {
       # TODO
-      # freebsd requires a XS module because of
-      # missing /proc
+      # freebsd requires a XS module because of missing /proc
       die "not implemented yet";
     }
   }
@@ -204,9 +214,10 @@ sub get_program_basedir() {
   my ( $vol, $dirs ) = &File::Spec::Functions::splitpath( $execp );
 
   return &Cwd::abs_path
-  (
-    &File::Spec::Functions::catpath( $vol, $dirs, "" )
-  );
+    (
+      &File::Spec::Functions::catpath( $vol, $dirs, "" )
+    )
+  ;
 }
 
 #
@@ -214,14 +225,17 @@ sub get_program_basedir() {
 #
 sub set_abs_paths() {
   my @pathopts = qw
-  (
-    logfile
-    home
-    pidfile
-  );
+    (
+      logfile
+      home
+      pidfile
+      workdir
+    )
+  ;
 
+  my $umask = 0750;
   for my $option ( @pathopts ) {
-    next if ( not exists $options{ $option } );
+    exists $options{ $option } or next;
 
     my $path = $options{ $option };
     # naive but simple
@@ -232,19 +246,24 @@ sub set_abs_paths() {
     }
     
     if ( -e $path ) {
-      # stupid Cwd calls carp when path does not exists!
       $options{ $option } = &Cwd::abs_path( $path );
     } else {
-      $options{ $option } = $path;
+      # stupid Cwd calls carp() when path does not exists
+      # and returns nothing!
+      &File::Path::make_path( $path, { mode => $umask } );
+      $options{ $option } = &Cwd::abs_path( $path );
     }
   }
+
+  return;
 }
 
 sub set_default_options() {
   my %defaultmap =
     (
       'backend'	=> 'feersum',
-      'app'	=> 'feersum',
+      'app'	    => 'feersum',
+      'workdir' => '.',
     )
   ;
   
@@ -253,6 +272,8 @@ sub set_default_options() {
       $options{ $option } = $defaultmap{ $option };
     }
   }
+
+  return;
 }
 
 #
@@ -261,13 +282,15 @@ sub set_default_options() {
 sub set_env() {
   my $prefix = uc( $PROGRAM_NAME );
   my %envmap = 
-  (
-    #  %options        %ENV
-    'pidfile'     => join( '_', $prefix, 'PIDFILE' ),
-    'listen'      => join( '_', $prefix, 'LISTEN' ),
-    'app'	        => join( '_', $prefix, 'APP_NAME' ),
-    'logfile'			=> join( '_', $prefix, 'LOGFILE' ),
-  );
+    (
+      #  %options        %ENV
+      'pidfile'     => join( '_', $prefix, 'PIDFILE' ),
+      'listen'      => join( '_', $prefix, 'LISTEN' ),
+      'app'	        => join( '_', $prefix, 'APP_NAME' ),
+      'logfile'			=> join( '_', $prefix, 'LOGFILE' ),
+      'workdir'     => join( '_', $prefix, 'WORKDIR' ),
+    )
+  ;
 
   for my $option ( keys %envmap ) {
     if ( exists $options{ $option } ) {
@@ -278,12 +301,12 @@ sub set_env() {
   # set basedir
   my $key = join( '_', $prefix, 'BASEDIR' );
   $ENV{ $key } = &get_program_basedir();
-  
+
   return;
 }
 
 #
-# we're using AE::Log logger, see perlodc -m AnyEvent::Log for details.
+# We're using AE::Log logger, see 'perldoc AnyEvent::Log' for details.
 # Logger is configured via environment variables.
 #
 sub set_logger() {
@@ -295,6 +318,7 @@ sub set_logger() {
 
   my $loglevel = 'filter=note';    # default log level 'notice'
   my $output = 'log=';             # print to stdout by default
+
   # disables notifications from AnyEvent(?::*) modules
   # they are "buggy" with syslog and annoying
   my $suppress = 'AnyEvent=error';
@@ -302,9 +326,8 @@ sub set_logger() {
   if ( exists $options{ 'debug' } ) {
     $loglevel = 'filter=debug';
   }
-  
+
   if ( exists $options{ 'verbose' } ) {
-    $suppress = '';
     $loglevel = 'filter=trace';
   }
 
@@ -318,21 +341,22 @@ sub set_logger() {
     my $facility = $options{ 'syslog-facility' } || 'LOG_DAEMON';
     $output = sprintf( "log=syslog=%s", $facility );
   }
-  
+
   if ( exists $options{ 'background' } ) {
     # disables logging when running in background
     # and are not using logfile or syslog
     unless ( exists $options{ 'logfile' }
           || exists $options{ 'enable-syslog' } )
     {
-      $output = '+log=nolog';
+      $ENV{ 'PERL_ANYEVENT_LOG' } = 'log=nolog';
+      return;
     }
   }
 
-  $ENV{ 'PERL_ANYEVENT_LOG' } ||= join
+  $ENV{ 'PERL_ANYEVENT_LOG' } = join
     (
-      # FIXME
-      # A sequence dependence due "bugs" in AnyEvent and AnyEvent::Util
+      # A sequence dependence due the "bugs" in AnyEvent and 
+      # AnyEvent::Util modules:
       # * Please, no AE::Log() calls into BEGIN {} blocks;
       # * Sys::Syslog::openlog() must be called before
       #   "use AnyEvent(::Util)";
@@ -341,6 +365,8 @@ sub set_logger() {
       join( ":", $loglevel, $output ),
     )
   ;
+
+  return;
 }
 
 #
@@ -364,9 +390,11 @@ sub print_help() {
   
   print "Security options:";
   
-  printf $h, "--home [-H] arg", "working directory after fork";
-  printf $h, "", "- default: root directory";  
-  
+  printf $h, "--home [-H] arg", "home directory after fork";
+  printf $h, "", "- default: root directory";
+  printf $h, "--workdir [-W] arg", "working directory";
+  printf $h, "", "- default: .";
+
   print "Logging options:";
   
   printf $h, "--debug", "be verbose";
@@ -451,6 +479,14 @@ without them the logger is disabled.
 Changes home directory when the program is running
 in the background mode. Changing the directory approaches
 before first fork() call.
+
+=item --B<workdir>, -B<W> = I</my/work/dir>
+
+Sets a working directory. Inside this directory the program
+will keep all its files.
+
+If a specified directory does not exists, it will be
+created automatically.
 
 =back
 

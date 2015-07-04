@@ -5,7 +5,10 @@ $( function() {
         'Connection error',
         'Bad request',
         'Not implemented',
-        'Internal error'
+        'Internal error',
+        'Invalid name',
+        'Duplicate entry',
+        'Entry not found'
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
       pkOptions = [ 'RSA' ],
@@ -21,12 +24,11 @@ $( function() {
 
 
   function Database ( options ) {
-    this.defaults = { name: 'db', desc: '', home: '/' };
+    this.defaults = { name: 'db1', desc: '' };
     options = $.extend( { }, this.defaults, options  );
     
     this.Name = ko.observable( options.name );
     this.Description = ko.observable( options.desc );
-    this.Home = ko.observable( options.home );
 
     this.isActive = ko.observable( false );
   }
@@ -101,20 +103,26 @@ $( function() {
       this.CreateToggle();
     }
 
-    this.Create = args.Create ? args.Create.bind( this ) : Create.bind( this );
+    this.Create = $.isFunction( args.Create ) 
+      ? args.Create.bind( this )
+      : Create.bind( this );
     
     function Remove ( item ) {
       this.List.remove( item );
     }
     
-    this.Remove = args.Remove ? args.Remove.bind( this ) : Remove.bind( this );
+    this.Remove = $.isFunction( args.Remove )
+      ? args.Remove.bind( this )
+      : Remove.bind( this );
     
     function Wipe () {
       this.List.removeAll();
       this.WipeToggle();
     }
 
-    this.Wipe   = args.Wipe   ? args.Wipe.bind( this )   : Wipe.bind( this );
+    this.Wipe = $.isFunction( args.Wipe )
+      ? args.Wipe.bind( this )
+      : Wipe.bind( this );
 
     function CreateToggle () {
       this.onWipe( false );
@@ -185,45 +193,182 @@ $( function() {
     
     self.cfg = new Page( {
       CreateItem : function () { return new Database(); },
-      Remove : function ( db ) {
-        this.Settings( null );
-        this.List.remove( db );
+      Create : function () {
+        var iam = this,
+            db = iam.Item();
+
+        clearError();
+
+        postJSON( {
+          action: 'createdb',
+          name: db.Name(),
+          desc: db.Description()
+        },
+        function ( response ) {
+          if ( response.name ) {
+            iam.List.push( db );
+            iam.List.sort( sortByName );
+            iam.CreateToggle();
+          } else {
+            riseError( response.err );
+          }
+        } );
       },
-      Wipe : function () {
-        this.Settings( null );
-        this.List.removeAll();
-        this.WipeToggle();
+      Remove : function ( db ) {
+        var iam = this,
+            name = db.Name();
+
+        clearError();
+
+        postJSON( {
+          action: 'removedb',
+          name: name
+        },
+        function ( response ) {
+          if ( response.name ) {
+            if ( iam.Settings().Name() === name ) {
+              iam.Settings( null );
+            }
+
+            iam.List.remove( db );
+          } else {
+            self.errorMessage( errors[ response.err ] );
+          }
+        } );
+      },
+      Wipe : function ( ) {
+        var iam = this;
+
+        clearError();
+
+        postJSON( { action: 'removealldb' }, function ( response ) {
+          if ( 'deleted' in response ) {
+            iam.Settings( null );
+            iam.List.removeAll();
+            iam.WipeToggle();
+          } else {
+            self.errorMessage( errors[ response.err ] );
+          }
+        } );
       }
     } );
     
     function ActivateDB ( db ) {
-      var name = db.Name();
-      
-      var dbs = this.List(),
-          len = dbs.length;
+      var iam = this,
+          name = db.Name();
 
-      /* mark all as in-active */
-      for ( var i = 0; i < len; i++ ) {
-        dbs[i].isActive( false );
-      }
+      clearError();
+
+      postJSON( {
+        action: 'switchdb',
+        name: name
+      },
+      function ( response ) {
+        if ( response.name ) {
+          var dbs = iam.List(),
+              len = dbs.length;
+
+          /* mark all as an inactive */
+          for ( var i = 0; i < len; i++ ) {
+            dbs[i].isActive( false );
+          }
       
-      /* activate choosen db */
-      db.isActive( true );      
+          /* activate choosen db */
+          db.isActive( true );
       
-      /* retrieve settings */
-      this.Settings( db );
+          /* retrieve settings */
+          iam.Settings( db );
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
     }
     
     function SetupDB ( ) {
-      /* TODO */
-      var db = this.Settings();
-      
+      var iam = this,
+          db = iam.Settings(),
+          name = db.Name(),
+          desc = db.Description();
+
+      clearError();
+
+      postJSON( {
+        action: 'updatedb',
+        name: name,
+        desc: desc
+      },
+      function ( response ) {
+        if ( response.name ) {
+          /* nop */
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
+    }
+
+    function ListDBs ( ) {
+      var iam = this;
+
+      clearError();
+      iam.List.removeAll();
+
+      postJSON( { action: 'listdbs' }, function ( response ) {
+        if ( response.dbs ) {
+          var list = response.dbs,
+              total = list.length;
+
+          for ( var i = 0; i < total; i++ ) {
+            var db = list[i];
+            iam.List.push( new Database( { 
+              name: db.name,
+              desc: db.desc
+            } ) );
+          }
+
+          iam.List.sort( sortByName );
+          iam.Current();
+        }
+      } );
+    }
+
+    function CurrentDB ( ) {
+      var iam = this;
+
+      clearError();
+
+      postJSON( { action: 'currentdb' }, function ( response ) {
+        if ( response.name ) {
+          var dbs = iam.List(),
+              len = dbs.length,
+              name = response.name;
+
+          for ( var i = 0; i < len; i++ ) {
+            var db = dbs[i];
+
+            if ( db.Name() === name ) {
+              db.isActive( true );
+              iam.Settings( db );
+              break;
+            }
+          }
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
     }
 
     $.extend( self.cfg, {
       Activate: ActivateDB.bind( self.cfg ),
       Settings: ko.observable(),
-      Setup: SetupDB.bind( self.cfg )
+      Setup: SetupDB.bind( self.cfg ),
+      ListDBs: ListDBs.bind( self.cfg ),
+      Current: CurrentDB.bind( self.cfg )
     } );
 
     
@@ -234,6 +379,8 @@ $( function() {
       Create : function () {
         var iam = this;
         var key = iam.Item();
+
+        clearError();
       
         postJSON( { 
           action: 'genkey',
@@ -241,7 +388,8 @@ $( function() {
           bits: key.Size(),
           cipher: key.Cipher(),
           passwd: key.Password()
-        }, function ( response ) {
+        },
+        function ( response ) {
           if ( response.key ) {
             iam.List.push( key );
             iam.List.sort( sortByName );
@@ -300,6 +448,16 @@ $( function() {
       self.errorDescription( null );
     }
 
+    function riseError ( ) {
+      self.errorMessage( errors[ arguments[0] ] );
+
+      if ( arguments.length > 1 ) {
+        self.errorDescription( arguments[1] );
+      }
+
+      return false;
+    }
+
     function plusRequest() {
       var n = self.onAJAX() ? self.onAJAX() : 0;
       self.onAJAX( n + 1 );
@@ -327,6 +485,7 @@ $( function() {
         }
       } );
     }
+
     
     /*  Router functions  */
     
@@ -344,6 +503,8 @@ $( function() {
       switch ( action ) {
         case 'configure':
           self.onConfigure( true );
+          self.cfg.onTable( true );
+          self.cfg.ListDBs();
           break;
         case 'privatekeys':
           self.onPrivateKeys( true );

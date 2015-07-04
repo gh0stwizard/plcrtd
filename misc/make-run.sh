@@ -5,4 +5,4 @@ find ../src -regextype posix-extended -regex '.*.(pl|pm)$' | \
 xargs -n1 -I'{}' perl -c {} || exit 1
 unset PERL5LIB
 
-sh static.sh && strip bin/plcrtd && ./bin/plcrtd --verbose
+sh static.sh && strip bin/plcrtd && ./bin/plcrtd --verbose -W /tmp

@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+#
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
 
@@ -17,6 +19,7 @@ A modification for the plcrtd project.
 
 use strict;
 use common::sense;
+use vars qw( $PROGRAM_NAME $VERSION );
 use Feersum;
 use EV;
 use AnyEvent;
@@ -24,18 +27,20 @@ use AnyEvent::Socket;
 use AnyEvent::Handle;
 use AnyEvent::Util qw( run_cmd );
 use Socket ();
-use vars qw( $PROGRAM_NAME $VERSION );
+use Local::DB::UnQLite;
 
 
 my %CURRENT_SETTINGS;
 my %DEFAULT_SETTINGS =
-(
-  'LISTEN'    => '127.0.0.1:28980',
-  'APP_NAME'  => 'app+feersum.pl',
-  'SOMAXCONN' => &Socket::SOMAXCONN(),
-  'PIDFILE'   => '',
-  'LOGFILE'   => '',
-);
+  (
+    'LISTEN'    => '127.0.0.1:28980',
+    'APP_NAME'  => 'app+feersum.pl',
+    'SOMAXCONN' => &Socket::SOMAXCONN(),
+    'PIDFILE'   => '',
+    'LOGFILE'   => '',
+    'WORKDIR'   => '.',
+  )
+;
 
 
 {
@@ -43,11 +48,11 @@ my %DEFAULT_SETTINGS =
     undef $t;
     &start_server();
   };
-  
+
   my %signals; %signals = 
   (
     'HUP' => sub {
-      AE::log alert => "SIGHUP recieved, reload";
+      AE::log alert => "SIGHUP recieved, reloading";
       &reload_server();
     },
     'INT' => sub {
@@ -61,16 +66,16 @@ my %DEFAULT_SETTINGS =
       &shutdown_server();
     },
   );
-  
+
   %signals = map {
     # signal name         AE::signal( NAME, CALLBACK )
     +"$_"         =>      AE::signal( $_, $signals{ $_ } )
   } keys %signals;
-            
+
   $EV::DIED = sub {
     AE::log fatal => "$@";
   };
-  
+
   {
     no strict 'refs';
     *{ 'Feersum::DIED' } = sub {
@@ -92,14 +97,15 @@ Start a server process.
 
 =cut
 
-  
+
 sub start_server() {
   &update_settings();
   &enable_syslog();
   &debug_settings();
   &write_pidfile();
+  &Local::DB::UnQLite::set_db_home( &get_setting( 'WORKDIR' ) );
   &start_httpd();
-  
+
   AE::log note => "Listen on %s:%d, PID = %d",
     parse_listen(),
     $$,
@@ -117,6 +123,7 @@ Shutdown a server process.
 sub shutdown_server() {
   &unlink_pidfile();
   &stop_httpd();
+  &Local::DB::UnQLite::closealldb();
   &EV::unloop();
 }
 
@@ -131,6 +138,7 @@ Reload a server process.
 sub reload_server() {
   &reload_syslog();  
   &stop_httpd();
+  &Local::DB::UnQLite::closealldb();
   &start_httpd();
 
   AE::log note => "Server restarted, PID = %d", $$;
@@ -166,9 +174,9 @@ Enables syslog.
 
 sub enable_syslog() {
   my $facility = &get_syslog_facility() || return;
-  
+
   require Sys::Syslog;
-  
+
   &Sys::Syslog::openlog
     (
       $PROGRAM_NAME,
@@ -188,9 +196,9 @@ Reload syslog context.
 
 sub reload_syslog() {
   my $facility = &get_syslog_facility() || return;
-  
+
   require Sys::Syslog;
-  
+
   &Sys::Syslog::closelog();
 
   &Sys::Syslog::openlog
@@ -226,13 +234,13 @@ Starts Feersum.
 {
   my $Instance;
   my $socket;
-  
+
   sub start_httpd() {
     $Instance ||= Feersum->endjinn();
 
     my ( $addr, $port ) = parse_listen();
     $socket = &create_socket( $addr, $port );
-      
+
     if ( my $fd = fileno( $socket ) ) {
       $Instance->accept_on_fd( $fd );
       $Instance->set_server_name_and_port( $addr, $port );
@@ -251,10 +259,10 @@ Stops Feersum.
 
 =cut
 
-  
+
   sub stop_httpd() {
     ref $Instance eq 'Feersum' or return;
-    
+
     $Instance->request_handler( \&_503 );
     $Instance->unlisten();
     close( $socket )
@@ -333,7 +341,7 @@ sub create_socket($$) {
       $!,
     ;
   };
-  
+
   setsockopt
   (
     $socket,
@@ -345,7 +353,7 @@ sub create_socket($$) {
     $port,
     $!,
   ;
-  
+
   setsockopt
   (
     $socket,
@@ -357,7 +365,7 @@ sub create_socket($$) {
     $port,
     $!,
   ;
-  
+
   &AnyEvent::Util::fh_nonblocking( $socket, 1 );
 
   my $sa = &AnyEvent::Socket::pack_sockaddr
@@ -365,7 +373,7 @@ sub create_socket($$) {
     $port,
     &AnyEvent::Socket::aton( $addr ),
   );
-  
+
   bind( $socket, $sa ) or do {
     AE::log fatal => "Could not bind %s:%d: %s",
       $addr,
@@ -373,7 +381,7 @@ sub create_socket($$) {
       $!,
     ;
   };
-  
+
   listen( $socket, &get_setting( 'SOMAXCONN' ) ) or do {
     AE::log fatal => "Could not listen %s:%d: %s",
       $addr,
@@ -381,7 +389,7 @@ sub create_socket($$) {
       $!,
     ;
   };
-  
+
   return $socket;
 }
 
@@ -396,10 +404,10 @@ Returns IP address $addr and port $port to listen.
 sub parse_listen() {
   my ( $cur_addr, $cur_port ) = split ':', $CURRENT_SETTINGS{ 'LISTEN' };
   my ( $def_addr, $def_port ) = split ':', $DEFAULT_SETTINGS{ 'LISTEN' };
-  
+
   $cur_addr ||= $def_addr;
   $cur_port ||= $def_port;
-  
+
   return( $cur_addr, $cur_port );
 }
 
@@ -416,23 +424,23 @@ to load returns a predefined subroutine with 500 HTTP code.
 sub load_app() {
   my $file = $CURRENT_SETTINGS{ 'APP_NAME' } || $DEFAULT_SETTINGS{ 'APP_NAME'};
   my $app = do( $file );
-  
+
   if ( ref $app eq 'CODE' ) {
     return $app;
   }
-      
+
   if ( $@ ) {
     AE::log error => "Couldn't parse %s: %s", $file, "$@";
   }
-      
+
   if ( $! && !defined $app ) {
     AE::log error => "Couldn't do %s: %s", $file, $!;
   }
-      
+
   if ( !$app ) {
     AE::log error => "Couldn't run %s", $file;
   }
-  
+
   return \&_500;
 }
 
@@ -494,7 +502,7 @@ Returns a current settings value by a name $name.
 sub get_setting($) {
   my ( $name ) = @_;
 
-  
+
   if ( exists $CURRENT_SETTINGS{ $name } ) {
     return $CURRENT_SETTINGS{ $name };
   } else {

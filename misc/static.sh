@@ -49,6 +49,7 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MHTTP::Body \
 -MHTML::Entities \
 -MUnQLite \
+-MFile::Path \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \

@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+#
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
 
@@ -16,8 +18,8 @@ A modification for the plcrtd project.
 
 
 use strict;
-use warnings;
 use common::sense;
+use vars qw( $PROGRAM_NAME );
 use AnyEvent;
 use AnyEvent::Util;
 use HTTP::Body ();
@@ -26,7 +28,6 @@ use Scalar::Util ();
 use HTML::Entities ();
 use Encode qw( decode_utf8 );
 use Local::DB::UnQLite;
-use vars qw( $PROGRAM_NAME );
 
 
 # body checks
@@ -64,6 +65,9 @@ sub CONNECTION_ERROR  { 0 } # Connection error
 sub BAD_REQUEST       { 1 } # Bad request
 sub NOT_IMPLEMENTED   { 2 } # Not implemented
 sub EINT_ERROR        { 3 } # Internal error
+sub INVALID_NAME      { 4 } # Invalid entry name
+sub DUPLICATE_ENTRY   { 5 } # Duplicate entry
+sub ENTRY_NOTFOUND    { 6 } # Entry not found
 
 
 =item B<app>( $request )
@@ -171,10 +175,52 @@ sub do_post($$$$) {
     or &send_error( $R, &BAD_REQUEST() ), return;
 
   my $action = $params->{ 'action' } || '';
+
   my $min_pw_len = 4;
   my $max_pw_len = 8192;
 
-  if ( $action eq 'genkey' ) {
+  if ( $action eq 'listdbs' ) {
+    # returns all database entries
+
+    &list_dbs( $R );
+
+  } elsif ( $action eq 'createdb' ) {
+    # creates new database
+    my $db_name = $params->{ 'name' } || '';
+    my $db_desc = $params->{ 'desc' } || '';
+
+    &create_db( $R, $db_name, $db_desc );
+
+  } elsif ( $action eq 'removedb') {
+    # removes a database and related files
+    my $db_name = $params->{ 'name' } || '';
+
+    &remove_db( $R, $db_name );
+
+  } elsif ( $action eq 'switchdb' ) {
+    # returns current database
+    my $db_name = $params->{ 'name' } || '';
+
+    &switch_db( $R, $db_name );
+
+  } elsif ( $action eq 'updatedb' ) {
+    # updates database settings
+    my $db_name = $params->{ 'name' } || '';
+    my $db_desc = $params->{ 'desc' } || '';
+
+    &update_db( $R, $db_name, $db_desc );
+
+  } elsif ( $action eq 'removealldb' ) {
+    # removes all user database entries
+
+    &remove_all_dbs( $R );
+
+  } elsif ( $action eq 'currentdb' ) {
+    # returns a name of current user database
+
+    &current_db( $R );
+
+  } elsif ( $action eq 'genkey' ) {
     my $type = $params->{ 'type' } || 'RSA';
     my $bits = int( $params->{ 'bits' } || 0 );
     my $cipher = $params->{ 'cipher' } || '';
@@ -419,6 +465,18 @@ Requested service is not implemented yet.
 
 Some sort of an internal error has occurs on a server side.
 
+=item 4 INVALID_NAME
+
+Invalid name. Usually, name is a key in a database.
+
+=item 5 DUPLICATE_ENTRY
+
+Duplicate entry in a database.
+
+=item 6 ENTRY_NOTFOUND
+
+An entry not found in a database.
+
 =back
 
 =cut
@@ -429,6 +487,26 @@ sub send_error($$;$) {
 
   my %data = ( err => $code );
   $data{ 'msg' } = decode_utf8( $msg ) if ( $msg );
+
+  my $w = $R->start_streaming( 200, \@HEADER_JSON );
+  $w->write( encode_json( \%data ) );
+  $w->close();
+
+  return;
+}
+
+
+=item B<send_response>( $feersum, %data )
+
+Sends a response with a specified data %data. The repsonse
+will be encoded as JSON.
+
+=cut
+
+
+sub send_response($%) {
+  my ( $R, %data ) = @_;
+
 
   my $w = $R->start_streaming( 200, \@HEADER_JSON );
   $w->write( encode_json( \%data ) );
@@ -565,6 +643,230 @@ Returns true (1) on success, otherwise returns false (0).
     }
   }
 
+}
+
+
+=item B<create_db>( $feersum, $name, $description )
+
+Adds new database record with the key $name to an 
+internal database '__db__'.
+
+=cut
+
+
+sub create_db($$$) {
+  my ( $R, $name, $desc ) = @_;
+
+
+  if ( not check_db_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+
+  if ( not $dbs->fetch( $name ) ) {
+    my %data = ( name => $name, desc => $desc );
+    $dbs->store( $name, encode_json( \%data ) )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } else {
+    &send_error( $R, &DUPLICATE_ENTRY() );
+    return;
+  }
+
+  return;
+}
+
+
+=item B<remove_db>( $feersum, $name, $description )
+
+Removes a database record with the key $name from an 
+internal database '__db__'.
+
+=cut
+
+
+sub remove_db($$) {
+  my ( $R, $name ) = @_;
+
+
+  if ( not check_db_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+
+  if ( $dbs->fetch( $name ) ) {
+    $dbs->delete( $name )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } else {
+    &send_error( $R, &ENTRY_NOTFOUND() );
+    return;
+  }
+
+  return;
+}
+
+
+=item B<update_db>( $feersum, $name, $description )
+
+Updates an existing database record with the key $name 
+in an internal database '__db__'. The value name is kept
+as it was before, i.e. never updates.
+
+=cut
+
+
+sub update_db($$$) {
+  my ( $R, $name, $desc ) = @_;
+
+
+  if ( not check_db_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+
+  if ( my $data = $dbs->fetch_json( $name ) ) {
+    $data->{ 'desc' } = $desc;
+    $dbs->store( $name, encode_json( $data ) )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } else {
+    &send_error( $R, &ENTRY_NOTFOUND() );
+    return;
+  }
+
+  return;
+}
+
+
+=item B<switch_db>( $feersum, $name )
+
+Sets the key '_' with a specified database name $name 
+in an internal database '__db__'. All next non-database management
+related actions will be performed using the specified
+database with the name $name.
+
+The database record with a specified $name must be
+created before calling this function.
+
+=cut
+
+
+sub switch_db($$) {
+  my ( $R, $name ) = @_;
+
+
+  if ( not check_db_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+
+  if ( $dbs->fetch( $name ) ) {
+    $dbs->store( '_', $name )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } else {
+    &send_error( $R, &ENTRY_NOTFOUND() );
+    return;
+  }
+
+  return;
+}
+
+
+=item B<current_db>( $feersum )
+
+Sends a response to a client side with a name of the
+current active database. See also B<switch_db>()
+for details.
+
+=cut
+
+
+sub current_db($) {
+  my ( $R ) = @_;
+
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+
+  if ( my $name = $dbs->fetch( '_' ) ) {
+    &send_response( $R, 'name', $name );
+  } else {
+    &send_error( $R, &ENTRY_NOTFOUND() );
+    return;
+  }
+
+  return;  
+}
+
+
+=item B<list_dbs>( $feersum )
+
+Sends a response to client side with list of databases.
+
+=cut
+
+
+sub list_dbs($) {
+  my ( $R ) = @_;
+
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+  my $all = $dbs->all_json_except( '_' );
+
+  &send_response( $R, 'dbs', $all );
+
+  return;
+}
+
+
+=item B<remove_all_dbs>( $feersum )
+
+Removes all entries from an internal database '__db__'.
+
+=cut
+
+
+sub remove_all_dbs($) {
+  my ( $R ) = @_;
+
+
+  my $dbs = Local::DB::UnQLite->new( '__db__' );
+  my $num = $dbs->delete_all();
+
+  &send_response( $R, 'deleted', $num );
+
+  return;  
+}
+
+
+=item B<check_db_name>( $name )
+
+Performs a test if a specified database name $name is
+valid. There are exists reserved names: '_', '__db__'.
+
+The name $name may contents alphanumeric characters and
+next symbols: '.', '-', '+', '_'.
+
+=cut
+
+
+sub check_db_name($) {
+  my ( $name ) = @_;
+
+
+  my %reserved = ( '_' => 1, '__db__' => 1 );
+  exists $reserved{ $name } and return 0;
+
+  return ( $name =~ m/[\w\.\-\+\_]+/o );
 }
 
 

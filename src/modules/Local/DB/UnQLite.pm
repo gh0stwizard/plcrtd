@@ -1,5 +1,11 @@
 package Local::DB::UnQLite;
 
+# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+#
+# This is free software; you can redistribute it and/or modify it
+# under the same terms as the Perl 5 programming language system itself.
+
+
 =encoding utf-8
 
 =head1 NAME
@@ -28,13 +34,14 @@ as possible (at least, I hope so).
 
 
 use strict;
+use common::sense;
 use UnQLite;
 use Encode ();
 use File::Spec::Functions qw( catfile canonpath );
 use JSON::XS qw( decode_json );
 
 
-our $VERSION = '1.003'; $VERSION = eval $VERSION;
+our $VERSION = '1.004'; $VERSION = eval $VERSION;
 
 
 =head1 FUNCTIONS
@@ -321,6 +328,34 @@ sub all($) {
   return \@list;
 }
 
+
+=item $ary = B<all_except>( $key1, $key2, ... )
+
+Returns all entries as an array reference excluding specified
+keys $key1, $key2, etc.
+
+=cut
+
+
+sub all_except($;@) {
+  my $db = _get_instance ${ +shift };
+  my $cursor = $db->cursor_init();
+
+  my %excluded = map { +"$_" => 1 } @_;
+  my @list;
+  for ( $cursor->first_entry();
+        $cursor->valid_entry();
+        $cursor->next_entry() )
+  {
+    if ( not exists $excluded{ $cursor->key() } ) {
+      push @list, &Encode::decode_utf8( $cursor->data() );
+    }
+  }
+  
+  return \@list;
+}
+
+
 =item $ary = B<all_json>()
 
 Returns all entries as an array reference. Each entry will be
@@ -343,6 +378,57 @@ sub all_json($) {
   }
   
   return \@list;
+}
+
+
+=item $ary = B<all_json_except>( $key1, $key2, ... )
+
+Returns all entries as an array reference excluding specified
+in arguments with the keys $key1, $key2, etc. Each entry will be
+decoded by C<JSON::XS::decode_json()> function.
+
+=cut
+
+
+sub all_json_except($;@) {
+  my $db = _get_instance ${ +shift };
+  my $cursor = $db->cursor_init();
+
+  my %excluded = map { +"$_" => 1 } @_;  
+  my @list;
+  for ( $cursor->first_entry();
+        $cursor->valid_entry();
+        $cursor->next_entry() )
+  {
+    if ( not exists $excluded{ $cursor->key() } ) {
+      push @list,
+        decode_json( &Encode::decode_utf8( $cursor->data() ) );
+    }
+  }
+  
+  return \@list;
+}
+
+=item @keys = B<keys>()
+
+Returns all keys stored in a database.
+
+=cut
+
+
+sub keys($) {
+  my $db = _get_instance ${ $_[0] };
+  my $cursor = $db->cursor_init();
+  
+  my @keys;
+  for ( $cursor->first_entry();
+        $cursor->valid_entry();
+        $cursor->next_entry() )
+  {
+    push @keys, $cursor->key();
+  }
+  
+  return wantarray ? @keys : \@keys;
 }
 
 

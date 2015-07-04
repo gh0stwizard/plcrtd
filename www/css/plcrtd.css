@@ -172,10 +172,10 @@ button:disabled.btn {
 #hTable td {
   padding: 10px 15px;
   color: #669;
-  border-bottom: 1px solid #e8edff;	
+  /* border-bottom: 1px solid #e8edff; */
 }
 #hTable td.editable {
-  padding: 0 15px;
+  padding: 5px 15px;
 }
 #hTable td input {
   font-size: 1.2em;
