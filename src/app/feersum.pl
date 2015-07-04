@@ -277,10 +277,33 @@ sub do_post($$$$) {
 
     &list_crts( $R );
 
+  } elsif ( $action eq 'removecrt' ) {
+    # remove a certificate
+    my $name = $params->{ 'name' } || '';
+
+    &remove_crt( $R, $name );
+
+  } elsif ( $action eq 'removeallcrts' ) {
+    # removes all certificates from an user database
+
+    &remove_all_crts( $R );
+
   } elsif ( $action eq 'listcrls' ) {
     # return a list of all certificate revocation lists
 
     &list_crls( $R );
+
+  } elsif ( $action eq 'removecrl' ) {
+    # remove a certificate revocation list
+    my $name = $params->{ 'name' } || '';
+
+    &remove_crl( $R, $name );
+
+  } elsif ( $action eq 'removeallcrls' ) {
+    # removes all certificate revocation lists 
+    # from an user database
+
+    &remove_all_crls( $R );
 
   } elsif ( $action eq 'genCAcrt' ) {
     my $key = $params->{ 'key' } || '';

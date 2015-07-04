@@ -872,6 +872,7 @@ $( function() {
           self.crl.onTable( true );
           self.crl.onCreate( false );
           self.crl.onWipe( false );
+          self.crt.ListCRLs();
           break;
         case 'about':
           self.onAbout( true );
