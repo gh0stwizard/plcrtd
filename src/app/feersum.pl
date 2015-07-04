@@ -229,7 +229,7 @@ sub do_post($$$$) {
     my $cipher = $params->{ 'cipher' } || '';
     my $passwd = $params->{ 'passwd' } || '';    
 
-    &genpkey( $R, $name, $type, $bits, $cipher, $passwd );
+    &genkey( $R, $name, $type, $bits, $cipher, $passwd );
 
   } elsif ( $action eq 'removekey' ) {
     # removes a private key from an user database
@@ -272,6 +272,25 @@ sub do_post($$$$) {
 
     &remove_all_csrs( $R );
 
+  } elsif ( $action eq 'gencrt' ) {
+    # generates new certificate and stores into user database
+    my $name = $params->{ 'name' } || '';
+    my $days = int( $params->{ 'days' } || 0 );
+    my %settings = ( days => $days );
+
+    if ( exists $params->{ 'csrname' } ) {
+      $settings{ 'csrname' } = $params->{ 'csrname' } || '';
+      $settings{ 'serial' } = $params->{ 'serial' } || '01';
+      $settings{ 'caname' } = $params->{ 'caname' } || '';
+      $settings{ 'capass' } = $params->{ 'capass' } || '';
+    } else {
+      $settings{ 'keyname' } = $params->{ 'keyname' } || '';
+      $settings{ 'keypass' } = $params->{ 'keypass' } || '';
+      $settings{ 'subject' } = $params->{ 'subject' } || '';
+    }
+
+    &gencrt( $R, $name, %settings );
+
   } elsif ( $action eq 'listcrts' ) {
     # return a list of all certificates
 
@@ -287,6 +306,13 @@ sub do_post($$$$) {
     # removes all certificates from an user database
 
     &remove_all_crts( $R );
+
+  } elsif ( $action eq 'gencrl' ) {
+    # generates new certificate revocation list 
+    # and stores into user database
+    my $name = $params->{ 'name' } || '';
+
+    &gencrl( $R, $name, );
 
   } elsif ( $action eq 'listcrls' ) {
     # return a list of all certificate revocation lists
@@ -561,7 +587,7 @@ sub send_response($%) {
 }
 
 
-=item B<genpkey>( $feersum, $name, $type, $bits, [ $cipher, $password ] )
+=item B<genkey>( $feersum, $name, $type, $bits, [ $cipher, $password ] )
 
 Generates a private key, where are $name is a filename,
 $type is either RSA or DSA, $bits is one of the next values: 1024, 2048, 4096.
@@ -572,7 +598,7 @@ a passphrase.
 =cut
 
 
-sub genpkey($$$$;$$) {
+sub genkey($$$$;$$) {
   my ( $R, $name, $type, $bits, $cipher, $password ) = @_;
 
 
@@ -721,6 +747,23 @@ Returns true (1) on success, otherwise returns false (0).
     }
   }
 
+}
+
+
+=item B<check_days>( $days )
+
+Checks a days parameter.
+
+=cut
+
+
+sub check_days($) {
+  my ( $days ) = @_;
+
+
+  $days =~ m/^\d+$/o or return 0;
+
+  return ( $days >= 1 );
 }
 
 
@@ -1179,6 +1222,13 @@ sub gencsr($$$$;$) {
 }
 
 
+=item B<list_csrs>( $feersum )
+
+Sends to a client side a list of certificate signing requests.
+
+=cut
+
+
 sub list_csrs($) {
   my ( $R ) = @_;
 
@@ -1198,6 +1248,14 @@ sub list_csrs($) {
 
   &send_response( $R, 'csrs', $items );
 }
+
+
+=item B<remove_csr>( $feersum, $name )
+
+Removes from a database a certificate signing request with specified name $name.
+
+=cut
+
 
 sub remove_csr($$) {
   my ( $R, $name ) = @_;
@@ -1221,6 +1279,14 @@ sub remove_csr($$) {
     : &send_error( $R, &EINT_ERROR() );
 }
 
+
+=item B<remove_all_csrs>( $feersum )
+
+Removes all certificate signing requests entries from a database.
+
+=cut
+
+
 sub remove_all_csrs($) {
   my ( $R ) = @_;
 
@@ -1237,6 +1303,202 @@ sub remove_all_csrs($) {
 
   &send_response( $R, 'deleted', $num );
 }
+
+
+=item B<gencrt>( $feersum, $name, %params )
+
+Generates a new certificate. An example of parameters for CA certificate:
+
+  keyname => $keyname,
+  keypass => $keypass, # optional
+  days    => $days,
+  subject => $subject,
+
+An example of parameters for client self-signed certificate:
+
+  csrname => $csrname,
+  days    => $days,
+  caname  => $caname,
+  capass  => $capass,  # optional
+  serial  => $serial,  # optional
+
+
+=cut 
+
+
+sub gencrt($$%) {
+  my ( $R, $name, %params ) = @_;
+
+
+  if ( not check_file_name( $params{ 'name' } ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  if ( not check_days( $params{ 'days' } ) ) {
+    &send_error( $R, &BAD_REQUEST() );
+    return;
+  }
+
+
+  my @command = ( 'openssl' );
+  my @fdsetup = 
+    (
+      "<",  "/dev/null",
+      ">",  \my $stdout,
+      "2>", \my $stderr,
+      "3<", \my $crtout,
+    )
+  ;
+
+  my $isSelfSign = 0;
+
+  if ( $params{ 'csrname' } ) {
+    # client self-signed certificate
+    push @command, 'x509', '-req', 
+      '-out',   '/dev/fd/3',
+      '-in',    '/dev/fd/4', # csr
+      '-CA',    '/dev/fd/5', # ca crt
+      '-CAkey', '/dev/fd/6', # ca key
+    ;
+
+    # + set_serial
+    if ( $params{ 'serial' } ) {
+      push @command, '-set_serial', $params{ 'serial' };
+    }
+
+    # + passin
+    if ( my $passwd = $params{ 'capass' } ) {
+      if ( &check_password( $passwd ) ) {
+        push @command, '-passin fd:7';
+        push @fdsetup, '7<', \$passwd;
+      } else {
+        &send_error( $R, &BAD_REQUEST() );
+        return;
+      }
+    }
+
+    $isSelfSign = 1;
+
+  } else {
+    # probably CA certificate
+    push @command, 'req', '-batch', '-new', '-x509',
+      '-out', '/dev/fd/3',
+      '-key', '/dev/fd/4',
+    ;
+
+    # + subject
+    if ( $params{ 'subject' } ) {
+      push @command, '-subj', $params{ 'subject' };
+    }
+
+    # + passin
+    if ( my $passwd = $params{ 'keypass' } ) {
+      if ( &check_password( $passwd ) ) {
+        push @command, '-passin fd:5';
+        push @fdsetup, '5<', \$passwd;
+      } else {
+        &send_error( $R, &BAD_REQUEST() );
+        return;
+      }
+    }
+  }
+
+  # + days
+  push @command, '-days', $params{ 'days' };
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+
+  # retrieving neccessary keys and certs.
+  if ( $isSelfSign ) {
+    my $kv_csr = 'csr_' . $params{ 'csrname' };
+    my $csr = $db->fetch_json( $kv_csr )
+      or return &send_error( $R, &ENTRY_NOTFOUND() );
+    my $csrin = $csr->{ 'out' }
+      or return &send_error( $R, &EINT_ERROR(), "missing csr" );
+    push @fdsetup, "4<", \$csrin;
+
+    my $kv_ca_crt = 'crt_' . $params{ 'caname' };
+    my $crt = $db->fetch_json( $kv_ca_crt )
+      or return &send_error( $R, &ENTRY_NOTFOUND() );
+    my $crtin = $crt->{ 'out' }
+      or return &send_error( $R, &EINT_ERROR(), "missing ca" );
+    push @fdsetup, "5<", \$crtin;
+
+    my $kv_ca_key = 'key_' . $params{ 'capass' };
+    my $key = $db->fetch_json( $kv_ca_key )
+      or return &send_error( $R, &ENTRY_NOTFOUND() );
+    my $keyin = $key->{ 'out' }
+      or return &send_error( $R, &EINT_ERROR(), "missing ca key" );
+    push @fdsetup, "6<", \$keyin;
+
+  } else {
+    my $kv = 'key_' . $params{ 'keyname' };
+    my $key = $db->fetch_json( $kv )
+      or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+    my $keyin = $key->{ 'out' }
+      or return &send_error( $R, &EINT_ERROR(), "missing key" );
+
+    push @fdsetup, "4<", \$keyin;
+  }
+
+
+  my $cv = run_cmd [ @command ], @fdsetup;
+
+  $cv->cb( sub {
+    &Scalar::Util::weaken( my $R = $R );
+
+    # check if command executed successfully
+    shift->recv()
+      and return &send_error( $R, &EINT_ERROR(), $stderr );
+
+    # find out a database name to store result
+    my $maindb = Local::DB::UnQLite->new( '__db__' );
+    my $dbname = $maindb->fetch( '_' )
+      || return &send_error( $R, &MISSING_DATABASE() );
+
+    # checks if database settings record exists
+    $maindb->fetch( $dbname )
+      or return &send_error( $R, &MISSING_DATABASE() );
+
+    my $db = Local::DB::UnQLite->new( $dbname );    
+    my $kv = 'crt_' . $name;
+
+    # checks if a crt already generated for specified $name
+    $db->fetch( $kv )
+      and return &send_error( $R, &DUPLICATE_ENTRY() );
+
+    my %data =
+      (
+        name    => $params{ 'name' },
+        days    => $params{ 'days' },
+        out     => $crtout,
+      )
+    ;
+
+    $db->store( $kv, encode_json( \%data ) )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } );
+
+  return;
+}
+
+
+=item B<list_crts>( $feersum )
+
+Sends to a client side a list of certificates.
+
+=cut
 
 
 sub list_crts($) {
@@ -1258,6 +1520,14 @@ sub list_crts($) {
 
   &send_response( $R, 'crts', $items );
 }
+
+
+=item B<remove_crt>( $feersum, $name )
+
+Removes from a database a certificate with specified name $name.
+
+=cut
+
 
 sub remove_crt($$) {
   my ( $R, $name ) = @_;
@@ -1281,6 +1551,14 @@ sub remove_crt($$) {
     : &send_error( $R, &EINT_ERROR() );
 }
 
+
+=item B<remove_all_crts>( $feersum )
+
+Removes all certificates entries from a database.
+
+=cut
+
+
 sub remove_all_crts($) {
   my ( $R ) = @_;
 
@@ -1297,6 +1575,21 @@ sub remove_all_crts($) {
 
   &send_response( $R, 'deleted', $num );
 }
+
+
+sub gencrl($$) {
+  my ( $R, $name ) = @_;
+
+
+  &send_error( $R, &NOT_IMPLEMENTED() );
+}
+
+
+=item B<list_crls>( $feersum )
+
+Sends to a client side a list of certificate revocation lists.
+
+=cut
 
 
 sub list_crls($) {
@@ -1319,6 +1612,14 @@ sub list_crls($) {
   &send_response( $R, 'crls', $items );
 }
 
+
+=item B<remove_crl>( $feersum, $name )
+
+Removes from a database a certificate revocation lists with specified name $name.
+
+=cut
+
+
 sub remove_crl($$) {
   my ( $R, $name ) = @_;
 
@@ -1340,6 +1641,14 @@ sub remove_crl($$) {
     ? &send_response( $R, 'name', $name )
     : &send_error( $R, &EINT_ERROR() );
 }
+
+
+=item B<remove_all_crls>( $feersum )
+
+Removes all certificate revocation lists entries from a database.
+
+=cut
+
 
 sub remove_all_crls($) {
   my ( $R ) = @_;
