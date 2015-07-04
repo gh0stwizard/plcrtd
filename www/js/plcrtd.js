@@ -43,7 +43,7 @@ $( function() {
       cipher: 'AES256',
       passwd: null
     };
-    options = $.extend( {}, this.defaults, options );
+    options = $.extend( { }, this.defaults, options );
 
     this.Name = ko.observable( options.name );
     this.Type = ko.observable( options.type );
@@ -67,7 +67,7 @@ $( function() {
       keypass: '',
       subject: '/CN=plcrtd'
     };
-    options = $.extend( {}, this.defaults, options );
+    options = $.extend( { }, this.defaults, options );
 
     this.Name = ko.observable( options.name );
     this.KeyName = ko.observable( options.keyname );
@@ -77,18 +77,22 @@ $( function() {
 
   
   function Certificate ( options ) {
-    this.defaults = { name: 'crt1' };
-    options = $( {}, this.defaults, options );
+    this.defaults = {
+      name: 'crt1'
+    };
+    options = $.extend( { }, this.defaults, options );
 
-    this.Name = ko.observable( name );
+    this.Name = ko.observable( options.name );
   }
 
 
   function RevocationList ( options ) {
-    this.defaults = { name: 'crl' };
-    options = $.extend( {}, this.defaults, options );
+    this.defaults = {
+      name: 'crl1'
+    };
+    options = $.extend( { }, this.defaults, options );
 
-    this.Name = ko.observable( name );
+    this.Name = ko.observable( options.name );
   }
 
 
@@ -575,7 +579,6 @@ $( function() {
               len = ary.length;
 
           for ( var i = 0; i < len; i++ ) {
-            console.log( ary[i] );
             iam.List.push( new Request( ary[i] ) );
           }
 
@@ -596,14 +599,172 @@ $( function() {
     /*  Behaviours: Certificates  */
     
     self.crt = new Page( {
-      CreateItem : function () { return new Certificate(); }
+      CreateItem : function () { return new Certificate(); },
+      Create : function ( ) {
+        var iam = this,
+            item = iam.Item(),
+            name = item.Name();
+
+        clearError();
+
+        postJSON( { 
+          action: 'gencrt',
+          name: name
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.push( item );
+            iam.List.sort( sortByName );
+            iam.CreateToggle();
+          } else {
+            riseError( response.err, response.msg );
+          }
+        } );
+      },
+      Remove : function ( entry ) {
+        var iam = this,
+            name = entry.Name();
+
+        clearError();
+
+        postJSON( {
+          action: 'removecrt',
+          name: name
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.remove( entry );
+          } else {
+            riseError( response.err );
+          }
+        } );
+      },
+      Wipe : function () {
+        var iam = this;
+
+        clearError();
+
+        postJSON( { action: 'removeallcrts' }, function ( response ) {
+          if ( 'deleted' in response ) {
+            iam.List.removeAll();
+            iam.WipeToggle();
+          } else {
+            riseError( response.err );
+          }
+        } );
+      }
+    } );
+
+    function ListCertificates ( ) {
+      var iam = this;
+
+      clearError();
+      iam.List.removeAll();
+
+      postJSON( { action: 'listcrts' }, function ( response ) {
+        if ( 'crts' in response ) {
+          var ary = response.crts,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.List.push( new Certificate( ary[i] ) );
+          }
+
+          iam.List.sort( sortByName );
+        } else {
+          riseError( response.err );
+        }
+      } );
+    }
+
+    $.extend( self.crt, {
+      ListCRTs : ListCertificates.bind( self.crt )
     } );
 
 
     /*  Behaviours: Revocation Lists  */
 
     self.crl = new Page( {
-      CreateItem : function () { return new RevocationList(); }
+      CreateItem : function () { return new RevocationList(); },
+      Create : function ( ) {
+        var iam = this,
+            item = iam.Item(),
+            name = item.Name();
+
+        clearError();
+
+        postJSON( { 
+          action: 'gencrl',
+          name: name
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.push( item );
+            iam.List.sort( sortByName );
+            iam.CreateToggle();
+          } else {
+            riseError( response.err, response.msg );
+          }
+        } );
+      },
+      Remove : function ( entry ) {
+        var iam = this,
+            name = entry.Name();
+
+        clearError();
+
+        postJSON( {
+          action: 'removecrl',
+          name: name
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.remove( entry );
+          } else {
+            riseError( response.err );
+          }
+        } );
+      },
+      Wipe : function () {
+        var iam = this;
+
+        clearError();
+
+        postJSON( { action: 'removeallcrls' }, function ( response ) {
+          if ( 'deleted' in response ) {
+            iam.List.removeAll();
+            iam.WipeToggle();
+          } else {
+            riseError( response.err );
+          }
+        } );
+      }
+    } );
+
+    function ListCRL ( ) {
+      var iam = this;
+
+      clearError();
+      iam.List.removeAll();
+
+      postJSON( { action: 'listcrls' }, function ( response ) {
+        if ( 'crls' in response ) {
+          var ary = response.crls,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.List.push( new Rekoved( ary[i] ) );
+          }
+
+          iam.List.sort( sortByName );
+        } else {
+          riseError( response.err );
+        }
+      } );
+    }
+
+    $.extend( self.crt, {
+      ListCRLs : ListCRL.bind( self.crt )
     } );
 
 
@@ -704,6 +865,7 @@ $( function() {
           self.crt.onTable( true );
           self.crt.onCreate( false );
           self.crt.onWipe( false );
+          self.crt.ListCRTs();
           break;
         case 'revoked':
           self.onRevoked( true );
