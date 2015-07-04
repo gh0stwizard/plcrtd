@@ -278,8 +278,8 @@ sub do_post($$$$) {
     my $days = int( $params->{ 'days' } || 0 );
     my %settings = ( days => $days );
 
-    if ( exists $params->{ 'csrname' } ) {
-      $settings{ 'csrname' } = $params->{ 'csrname' } || '';
+    if ( my $csrname = $params->{ 'csrname' } ) {
+      $settings{ 'csrname' } = $csrname;
       $settings{ 'serial' } = $params->{ 'serial' } || '01';
       $settings{ 'caname' } = $params->{ 'caname' } || '';
       $settings{ 'capass' } = $params->{ 'capass' } || '';
@@ -1355,6 +1355,16 @@ sub gencrt($$%) {
 
   if ( $params{ 'csrname' } ) {
     # client self-signed certificate
+    if ( not check_file_name( $params{ 'csrname' } ) ) {
+      &send_error( $R, &INVALID_NAME() );
+      return;
+    }
+
+    if ( not check_file_name( $params{ 'caname' } ) ) {
+      &send_error( $R, &INVALID_NAME() );
+      return;
+    }
+
     push @command, 'x509', '-req', 
       '-out',   '/dev/fd/3',
       '-in',    '/dev/fd/4', # csr
@@ -1382,6 +1392,11 @@ sub gencrt($$%) {
 
   } else {
     # probably CA certificate
+    if ( not check_file_name( $params{ 'keyname' } ) ) {
+      &send_error( $R, &INVALID_NAME() );
+      return;
+    }
+
     push @command, 'req', '-batch', '-new', '-x509',
       '-out', '/dev/fd/3',
       '-key', '/dev/fd/4',
@@ -1484,6 +1499,17 @@ sub gencrt($$%) {
         out     => $crtout,
       )
     ;
+
+    if ( $isSelfSign ) {
+      $data{ 'csrname' } = $params{ 'csrname' };
+      $data{ 'caname' } = $params{ 'caname' };
+      $data{ 'capass' } = $params{ 'capass' } ? 'secret' : '';
+      $data{ 'serial' } = $params{ 'serial' };
+    } else {
+      $data{ 'keyname' } = $params{ 'keyname' };
+      $data{ 'keypass' } = $params{ 'keypass' } ? 'secret' : '';
+      $data{ 'subject' } = $params{ 'subject' };
+    }
 
     $db->store( $kv, encode_json( \%data ) )
       ? &send_response( $R, 'name', $name )

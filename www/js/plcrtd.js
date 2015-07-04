@@ -78,11 +78,32 @@ $( function() {
   
   function Certificate ( options ) {
     this.defaults = {
-      name: 'crt1'
+      name: 'crt1',
+      desc: '',
+      days: 365,
+      keyname: '',
+      keypass: '',
+      subject: '',
+      csrname: '',
+      caname: '',
+      capass: '',
+      serial: '01'
     };
     options = $.extend( { }, this.defaults, options );
 
     this.Name = ko.observable( options.name );
+    this.Description = ko.observable( options.desc );
+    this.Days = ko.observable( options.days );
+
+    this.KeyName = ko.observable( options.keyname );
+    this.KeyPassword = ko.observable( options.keypass );
+    this.Subject = ko.observable( options.subject );
+
+    this.CSRName = ko.observable( options.csrname );
+    this.CAName = ko.observable( options.caname );
+    this.CAPassword = ko.observable( options.capass );
+    this.Serial = ko.observable( options.serial );
+    
   }
 
 
