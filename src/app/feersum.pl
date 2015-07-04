@@ -68,6 +68,7 @@ sub EINT_ERROR        { 3 } # Internal error
 sub INVALID_NAME      { 4 } # Invalid entry name
 sub DUPLICATE_ENTRY   { 5 } # Duplicate entry
 sub ENTRY_NOTFOUND    { 6 } # Entry not found
+sub MISSING_DATABASE  { 7 } # Missing target database name
 
 
 =item B<app>( $request )
@@ -221,13 +222,31 @@ sub do_post($$$$) {
     &current_db( $R );
 
   } elsif ( $action eq 'genkey' ) {
+    # generates new private key and stores into user database
+    my $name = $params->{ 'name' } || '';
     my $type = $params->{ 'type' } || 'RSA';
     my $bits = int( $params->{ 'bits' } || 0 );
     my $cipher = $params->{ 'cipher' } || '';
     my $passwd = $params->{ 'passwd' } || '';    
 
-    &genpkey( $R, $type, $bits, $cipher, $passwd );
-    
+    &genpkey( $R, $name, $type, $bits, $cipher, $passwd );
+
+  } elsif ( $action eq 'removekey' ) {
+    # removes a private key from an user database
+    my $name = $params->{ 'name' } || '';
+
+    &remove_pkey( $R, $name );
+
+  } elsif ( $action eq 'listkeys' ) {
+    # return a list of all private keys
+
+    &list_pkeys( $R );
+
+  } elsif ( $action eq 'removeallkeys' ) {
+    # removes all entries for private keys from an user database
+
+    &remove_all_pkeys( $R );
+
   } elsif ( $action eq 'genCAcrt' ) {
     my $key = $params->{ 'key' } || '';
     my $pass = $params->{ 'pass' } || '';
@@ -477,6 +496,10 @@ Duplicate entry in a database.
 
 An entry not found in a database.
 
+=item 7 MISSING_DATABASE
+
+The target database name was not found.
+
 =back
 
 =cut
@@ -516,16 +539,25 @@ sub send_response($%) {
 }
 
 
-=item B<genpkey>( $feersum, $type, $bits, [ $cipher, $password ] )
+=item B<genpkey>( $feersum, $name, $type, $bits, [ $cipher, $password ] )
 
-Generates a private key.
+Generates a private key, where are $name is a filename,
+$type is either RSA or DSA, $bits is one of the next values: 1024, 2048, 4096.
+To create an encrypted private key the additional arguments should be
+passed: $cipher is DES3, AES128, AES192, AES256; $password is 
+a passphrase.
 
 =cut
 
 
-sub genpkey($$$;$$) {
-  my ( $R, $type, $bits, $cipher, $password ) = @_;
+sub genpkey($$$$;$$) {
+  my ( $R, $name, $type, $bits, $cipher, $password ) = @_;
 
+
+  if ( not check_file_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
 
   my $sslcmd = '';
   my %types =
@@ -595,16 +627,41 @@ sub genpkey($$$;$$) {
   $cv->cb( sub {
     &Scalar::Util::weaken( my $R = $R );
 
-    if ( not shift->recv() ) {
-      my $w = $R->start_streaming( 200, \@HEADER_JSON );
-      $w->write( encode_json( { key => $keyout } ) );
-      $w->close();
-    } else {
-      AE::log error => "genpkey:\n";
-      AE::log error => join ' ', @command;
-      AE::log error => $stderr;
-      &send_error( $R, &EINT_ERROR(), $stderr );
-    }
+    # check if command executed successfully
+    shift->recv()
+      and return &send_error( $R, &EINT_ERROR(), $stderr );
+
+    # find out a database name to store result
+    my $maindb = Local::DB::UnQLite->new( '__db__' );
+    my $dbname = $maindb->fetch( '_' )
+      || return &send_error( $R, &MISSING_DATABASE() );
+
+    # checks if database settings record exists
+    $maindb->fetch( $dbname )
+      or return &send_error( $R, &MISSING_DATABASE() );
+
+    my $db = Local::DB::UnQLite->new( $dbname );
+
+    # checks if a key already generated for specified $name
+    my $pkeyname = 'pkey_' . $name;
+
+    $db->fetch( $pkeyname )
+      and return &send_error( $R, &DUPLICATE_ENTRY() );
+
+    my %data =
+      (
+        name    => $name,
+        size    => $bits,
+        type    => $type,
+        cipher  => $cipher,
+        passwd  => $password ? 'secret' : '',
+        keyout  => $keyout,
+      )
+    ;
+
+    $db->store( $pkeyname, encode_json( \%data ) )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
   } );
 
   return;
@@ -699,6 +756,14 @@ sub remove_db($$) {
   my $dbs = Local::DB::UnQLite->new( '__db__' );
 
   if ( $dbs->fetch( $name ) ) {
+    if ( my $active = $dbs->fetch( '_' ) ) {
+      if ( $active eq $name ) {
+        $dbs->delete( '_' );
+      }
+
+      &Local::DB::UnQLite::closedb( $name );
+    }
+
     $dbs->delete( $name )
       ? &send_response( $R, 'name', $name )
       : &send_error( $R, &EINT_ERROR() );
@@ -766,6 +831,10 @@ sub switch_db($$) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
+
+  # Close all database handlers to prevent
+  # multiple open database handlers.
+  &Local::DB::UnQLite::closealldb();
 
   my $dbs = Local::DB::UnQLite->new( '__db__' );
 
@@ -840,11 +909,13 @@ sub remove_all_dbs($) {
 
 
   my $dbs = Local::DB::UnQLite->new( '__db__' );
+  my @keys = $dbs->keys();
   my $num = $dbs->delete_all();
 
-  &send_response( $R, 'deleted', $num );
+  &Local::DB::UnQLite::closealldb();
+  &Local::DB::UnQLite::deletedb( $_ ) for @keys;
 
-  return;  
+  &send_response( $R, 'deleted', $num );
 }
 
 
@@ -866,7 +937,117 @@ sub check_db_name($) {
   my %reserved = ( '_' => 1, '__db__' => 1 );
   exists $reserved{ $name } and return 0;
 
-  return ( $name =~ m/[\w\.\-\+\_]+/o );
+  return ( $name =~ m/^[\w\.\-\+\_]+$/o );
+}
+
+
+=item B<check_file_name>( $name )
+
+Performs a test if a specified file name $name is
+valid.
+
+The name $name may contents alphanumeric characters and
+next symbols: '-', '_', '.'.
+
+A length of a name must be between 1 and 128 symbols.
+
+=cut
+
+
+sub check_file_name($) {
+  my ( $name ) = @_;
+
+
+  my $length = length( $name );
+
+  if ( $length >= 1 && $length <= 128 ) {
+    return ( $name =~ m/^[\w\-\.\_]+$/o );
+  } else {
+    return 0;
+  }
+}
+
+
+=item B<remove_pkey>( $feersum, $name )
+
+Removes from a database a private key with specified name $name.
+
+=cut
+
+
+sub remove_pkey($$) {
+  my ( $R, $name ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $pkeyname = 'pkey_' . $name;
+
+  $db->fetch( $pkeyname )
+    or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+  $db->delete( $pkeyname )
+    ? &send_response( $R, 'name', $name )
+    : &send_error( $R, &EINT_ERROR() );
+}
+
+
+=item B<list_pkeys>( $feersum )
+
+Sends to a client side a list of private keys.
+
+=cut
+
+
+sub list_pkeys($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $pkeys = $db->like_json( '^pkey_' );
+
+  # sanitize key text data
+  delete $_->{ 'keyout' } for ( @$pkeys );
+
+  &send_response( $R, 'keys', $pkeys );
+}
+
+
+=item B<remove_all_pkeys>( $feersum )
+
+Removes all private keys entries from a database.
+
+=cut
+
+
+sub remove_all_pkeys($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $num = $db->delete_like( '^pkey_' );
+
+  &send_response( $R, 'deleted', $num );
 }
 
 

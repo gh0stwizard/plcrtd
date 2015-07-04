@@ -50,6 +50,7 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MHTML::Entities \
 -MUnQLite \
 -MFile::Path \
+-MData::Dumper \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \

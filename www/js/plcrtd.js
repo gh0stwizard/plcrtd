@@ -8,7 +8,8 @@ $( function() {
         'Internal error',
         'Invalid name',
         'Duplicate entry',
-        'Entry not found'
+        'Entry not found',
+        'Missing a database'
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
       pkOptions = [ 'RSA' ],
@@ -43,13 +44,13 @@ $( function() {
       passwd: null
     };
     options = $.extend( {}, this.defaults, options );
-    
+
     this.Name = ko.observable( options.name );
     this.Type = ko.observable( options.type );
     this.Size = ko.observable( options.size );
     this.Cipher = ko.observable( options.cipher );
     this.Password = ko.observable( options.passwd );
-    
+
     this.Encrypted = ko.pureComputed( {
       owner: this,
       read: function ( ) {
@@ -74,7 +75,7 @@ $( function() {
     this.Name = ko.observable( name );
   }
 
-  
+
   function RevocationList ( options ) {
     this.defaults = { name: 'crl' };
     options = $.extend( {}, this.defaults, options );
@@ -92,11 +93,11 @@ $( function() {
     this.onTable = ko.observable( false );
     this.List = ko.observableArray( [ ] );
     this.Item = ko.observable();
-    
+
     this.CreateItem= args.CreateItem
       ? args.CreateItem.bind( this )
       : function ( ) { };
-      
+
     function Create () {
       this.List.push( this.Item() );
       this.List.sort( sortByName );
@@ -106,15 +107,15 @@ $( function() {
     this.Create = $.isFunction( args.Create ) 
       ? args.Create.bind( this )
       : Create.bind( this );
-    
+
     function Remove ( item ) {
       this.List.remove( item );
     }
-    
+
     this.Remove = $.isFunction( args.Remove )
       ? args.Remove.bind( this )
       : Remove.bind( this );
-    
+
     function Wipe () {
       this.List.removeAll();
       this.WipeToggle();
@@ -155,10 +156,10 @@ $( function() {
 
       return false;
     }
-    
+
     this.WipeToggle = WipeToggle.bind( this );
   }
-  
+
 
   function AppViewModel() {
     var self = this;
@@ -190,7 +191,7 @@ $( function() {
 
 
     /*  Behaviours: Configuration  */
-    
+
     self.cfg = new Page( {
       CreateItem : function () { return new Database(); },
       Create : function () {
@@ -214,9 +215,9 @@ $( function() {
           }
         } );
       },
-      Remove : function ( db ) {
+      Remove : function ( entry ) {
         var iam = this,
-            name = db.Name();
+            name = entry.Name();
 
         clearError();
 
@@ -230,9 +231,9 @@ $( function() {
               iam.Settings( null );
             }
 
-            iam.List.remove( db );
+            iam.List.remove( entry );
           } else {
-            self.errorMessage( errors[ response.err ] );
+            riseError( response.err );
           }
         } );
       },
@@ -247,12 +248,12 @@ $( function() {
             iam.List.removeAll();
             iam.WipeToggle();
           } else {
-            self.errorMessage( errors[ response.err ] );
+            riseError( response.err );
           }
         } );
       }
     } );
-    
+
     function ActivateDB ( db ) {
       var iam = this,
           name = db.Name();
@@ -272,10 +273,10 @@ $( function() {
           for ( var i = 0; i < len; i++ ) {
             dbs[i].isActive( false );
           }
-      
+
           /* activate choosen db */
           db.isActive( true );
-      
+
           /* retrieve settings */
           iam.Settings( db );
         } else {
@@ -285,7 +286,7 @@ $( function() {
 
       return false;
     }
-    
+
     function SetupDB ( ) {
       var iam = this,
           db = iam.Settings(),
@@ -355,8 +356,6 @@ $( function() {
               break;
             }
           }
-        } else {
-          riseError( response.err );
         }
       } );
 
@@ -371,51 +370,107 @@ $( function() {
       Current: CurrentDB.bind( self.cfg )
     } );
 
-    
+
     /*  Behaviours: Private Keys  */
 
     self.pk = new Page( {
       CreateItem : function () { return new PrivateKey(); },
       Create : function () {
-        var iam = this;
-        var key = iam.Item();
+        var iam = this,
+            key = iam.Item(),
+            name = key.Name(),
+            type = key.Type(),
+            size = key.Size(),
+            cipher = key.Cipher(),
+            passwd = key.Password();
 
         clearError();
-      
+
         postJSON( { 
           action: 'genkey',
-          type: key.Type(),
-          bits: key.Size(),
-          cipher: key.Cipher(),
-          passwd: key.Password()
+          name: name,
+          type: type,
+          bits: size,
+          cipher: cipher,
+          passwd: passwd
         },
         function ( response ) {
-          if ( response.key ) {
+          if ( response.name ) {
             iam.List.push( key );
             iam.List.sort( sortByName );
             iam.CreateToggle();
           } else {
-            self.errorMessage( errors[ response.err ] );
-            self.errorDescription( response.msg );
+            riseError( response.err, response.msg );
           }
         } );
       },
-      Remove : function ( pk ) {
-        this.List.remove( pk );
+      Remove : function ( entry ) {
+        var iam = this,
+            name = entry.Name();
+
+        clearError();
+
+        postJSON( {
+          action: 'removekey',
+          name: name
+        },
+        function ( response ) {
+          if ( response.name ) {
+            iam.List.remove( entry );
+          } else {
+            riseError( response.err );
+          }
+        } );
       },
       Wipe : function () {
-        this.List.removeAll();
-        this.WipeToggle();
+        var iam = this;
+
+        clearError();
+
+        postJSON( { action: 'removeallkeys' }, function ( response ) {
+          if ( 'deleted' in response ) {
+            iam.List.removeAll();
+            iam.WipeToggle();
+          } else {
+            riseError( response.err );
+          }
+        } );
       }
     } );
-    
-    
+
+    function ListPrivateKeys ( ) {
+      var iam = this;
+
+      clearError();
+      iam.List.removeAll();
+
+      postJSON( { action: 'listkeys' }, function ( response ) {
+        if ( response.keys ) {
+          var ary = response.keys,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.List.push( new PrivateKey( ary[i] ) );
+          }
+
+          iam.List.sort( sortByName );
+        } else {
+          riseError( response.err );
+        }
+      } );
+    }
+
+    $.extend( self.pk, {
+      ListPKs: ListPrivateKeys.bind( self.pk )
+    } );
+
+
     /*  Behaviours: Requests  */
-    
+
     self.csr = new Page( {
       CreateItem : function () { return new Request(); }
     } );
-    
+
 
     /*  Behaviours: Certificates  */
     
@@ -425,7 +480,7 @@ $( function() {
 
 
     /*  Behaviours: Revocation Lists  */
-    
+
     self.crl = new Page( {
       CreateItem : function () { return new RevocationList(); }
     } );
@@ -486,9 +541,9 @@ $( function() {
       } );
     }
 
-    
+
     /*  Router functions  */
-    
+
     function mainPage () { location.hash = 'about'; }
 
     /*  Setup routers  */
@@ -499,24 +554,39 @@ $( function() {
     var pagesRouter = crossroads.addRoute( '{action}' );
     pagesRouter.matched.add( function ( action ) {
       cleanAll();
-    
+
       switch ( action ) {
         case 'configure':
           self.onConfigure( true );
           self.cfg.onTable( true );
+          self.cfg.onCreate( false );
+          self.cfg.onWipe( false );
           self.cfg.ListDBs();
           break;
         case 'privatekeys':
           self.onPrivateKeys( true );
+          self.pk.onTable( true );
+          self.pk.onCreate( false );
+          self.pk.onWipe( false );
+          self.pk.ListPKs();
           break;
         case 'certificates':
           self.onCertificates( true );
+          self.crt.onTable( true );
+          self.crt.onCreate( false );
+          self.crt.onWipe( false );
           break;
         case 'requests':
           self.onRequests( true );
+          self.csr.onTable( true );
+          self.csr.onCreate( false );
+          self.csr.onWipe( false );
           break;
         case 'revoked':
           self.onRevoked( true );
+          self.crl.onTable( true );
+          self.crl.onCreate( false );
+          self.crl.onWipe( false );
           break;
         case 'about':
           self.onAbout( true );

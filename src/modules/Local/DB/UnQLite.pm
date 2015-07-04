@@ -10,9 +10,7 @@ package Local::DB::UnQLite;
 
 =head1 NAME
 
-UnQLite database interface for simple apps.
-
-=cut
+Friendly UnQLite database interface for applications.
 
 =head1 DESCRIPTION
 
@@ -41,7 +39,7 @@ use File::Spec::Functions qw( catfile canonpath );
 use JSON::XS qw( decode_json );
 
 
-our $VERSION = '1.004'; $VERSION = eval $VERSION;
+our $VERSION = '1.006'; $VERSION = eval "$VERSION";
 
 
 =head1 FUNCTIONS
@@ -146,6 +144,29 @@ Closes all database handlers.
     return $DBS{ "$_[0]" } if exists $DBS{ "$_[0]" };
     return;
   }
+
+
+=item B<deletedb>( $name )
+
+Deletes a database file from a filesystem.
+
+Returns true on success, otherwise -- false.
+
+=cut
+
+
+  sub deletedb($) {
+    my ( $name ) = @_;
+
+    if ( defined $name ) {
+      my $db_home = &get_db_home();
+      my $db_file = catfile( $db_home, "${name}.db" );
+      return unlink( $db_file );
+    }
+
+    return 0;
+  }
+
 }
 
 
@@ -263,7 +284,9 @@ sub delete( $key ) {
 
 =item $num_deleted = B<delete_all>()
 
-Deletes all entries from database.
+Deletes all entries from a database.
+
+Returns a number of deleted records.
 
 =cut
 
@@ -280,6 +303,43 @@ sub delete_all($) {
   }
   
   return $num_deleted;
+}
+
+
+=item $num_deleted = B<delete_like>( $regexp )
+
+Deletes entries from a database with the keys like specified 
+by a regexp. The regexp may be either regexp object or 
+string definition.
+
+Returns a number of deleted records.
+
+=cut
+
+
+sub delete_like($$) {
+  my $db = _get_instance ${ +shift } ;
+  my $regexp = shift;
+
+
+  if ( ref( $regexp ) ne 'Regexp' ) {
+    $regexp = qr/$regexp/;
+  }
+
+  my $num_deleted = 0;
+  my $cursor = $db->cursor_init();
+
+  for ( $cursor->first_entry();
+        $cursor->valid_entry(); )
+  {
+    if ( $cursor->key() =~ m/$regexp/ ) {
+      $cursor->delete_entry() && $num_deleted++;
+    } else {
+      $cursor->next_entry();
+    }
+  }
+  
+  return $num_deleted;  
 }
 
 
@@ -409,9 +469,11 @@ sub all_json_except($;@) {
   return \@list;
 }
 
+
 =item @keys = B<keys>()
 
-Returns all keys stored in a database.
+Returns an array of the keys stored in a database in a list context.
+In a scalar context returns an array reference.
 
 =cut
 
@@ -429,6 +491,72 @@ sub keys($) {
   }
   
   return wantarray ? @keys : \@keys;
+}
+
+
+=item $ary = B<like>( $regexp )
+
+Returns an array of records with keys like specified by a regexp.
+The regexp may be either regexp object or string definition.
+
+=cut
+
+
+sub like($$) {
+  my $db = _get_instance ${ +shift };
+  my $cursor = $db->cursor_init();
+
+  my $regexp = shift;
+
+  if ( ref $regexp ne 'Regexp' ) {
+    $regexp = qr/\Q$regexp\E/;
+  }
+
+  my @list;
+  for ( $cursor->first_entry();
+        $cursor->valid_entry();
+        $cursor->next_entry() )
+  {
+    if ( $cursor->key() =~ m/$regexp/ ) {
+      push @list, &Encode::decode_utf8( $cursor->data() );
+    }
+  }
+  
+  return \@list;  
+}
+
+
+=item $ary = B<like_json>( $regexp )
+
+Returns an array of records with keys like specified by a regexp.
+The regexp may be either regexp object or string definition. Each 
+entry will be decoded by C<JSON::XS::decode_json()> function.
+
+=cut
+
+
+sub like_json($$) {
+  my $db = _get_instance ${ +shift } ;
+  my $regexp = shift;
+
+
+  if ( ref( $regexp ) ne 'Regexp' ) {
+    $regexp = qr/$regexp/;
+  }
+
+  my @list;
+  my $cursor = $db->cursor_init();
+  for ( $cursor->first_entry();
+        $cursor->valid_entry();
+        $cursor->next_entry() )
+  {
+    if ( $cursor->key() =~ m/$regexp/ ) {
+      push @list,
+        decode_json( &Encode::decode_utf8( $cursor->data() ) );
+    }
+  }
+  
+  return \@list;  
 }
 
 
