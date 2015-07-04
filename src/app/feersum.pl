@@ -247,6 +247,41 @@ sub do_post($$$$) {
 
     &remove_all_pkeys( $R );
 
+  } elsif ( $action eq 'gencsr' ) {
+    # generates new certificate requests and stores into user database
+    my $name = $params->{ 'name' } || '';
+    my $keyname = $params->{ 'keyname' } || '';
+    my $subject = $params->{ 'subject' } || '/CN=plcrtd';
+    my $keypass = $params->{ 'keypass' } || '';
+
+    &gencsr( $R, $name, $keyname, $subject, $keypass );
+
+  } elsif ( $action eq 'listcsrs' ) {
+    # list of certificate requests
+
+    &list_csrs( $R );
+
+  } elsif ( $action eq 'removecsr' ) {
+    # remove a certificate request
+    my $name = $params->{ 'name' } || '';
+
+    &remove_csr( $R, $name );
+
+  } elsif ( $action eq 'removeallcsrs' ) {
+    # removes all certificate requests from an user database
+
+    &remove_all_csrs( $R );
+
+  } elsif ( $action eq 'listcrts' ) {
+    # return a list of all certificates
+
+    &list_crts( $R );
+
+  } elsif ( $action eq 'listcrls' ) {
+    # return a list of all certificate revocation lists
+
+    &list_crls( $R );
+
   } elsif ( $action eq 'genCAcrt' ) {
     my $key = $params->{ 'key' } || '';
     my $pass = $params->{ 'pass' } || '';
@@ -287,43 +322,7 @@ sub do_post($$$$) {
       &send_error( $R, &BAD_REQUEST() );
     }
 
-  } elsif ( $action eq 'genClientCsr' ) {
-    my $pass = $params->{ 'pass' } || '';
-    my $subj = $params->{ 'subj' } || '';
-    my $key = $params->{ 'key' } || '';
 
-    my $pw_len = length( $pass );
-
-    if ( $key ne '' && $subj ne ''
-      && $pw_len >= $min_pw_len && $pw_len < $max_pw_len )
-    {
-      my $cv = run_cmd [
-        qw( openssl req -batch -new -key /dev/fd/3 -out /dev/fd/4 ),
-        qw( -passin fd:5 -subj ), $subj
-      ],
-        "<", "/dev/null",
-        ">", \my $stdout,
-        "2>", \my $stderr,
-        "3<", \$key,
-        "4>", \my $csr,
-        "5<", \$pass,
-      ;
-
-      $cv->cb( sub {
-        &Scalar::Util::weaken( my $R = $R );
-
-        if ( not shift->recv() ) {
-          my $w = $R->start_streaming( 200, \@HEADER_JSON );
-          $w->write( encode_json( { key => $key, csr => $csr } ) );
-          $w->close();
-        } else {
-          &send_error( $R, &EINT_ERROR(), $stderr );
-        }
-      } );
-
-    } else {
-      &send_error( $R, &BAD_REQUEST() );
-    }
 
   } elsif ( $action eq 'genClientCrt' ) {
     my $serial = $params->{ 'serial' } || '01';
@@ -544,7 +543,7 @@ sub send_response($%) {
 Generates a private key, where are $name is a filename,
 $type is either RSA or DSA, $bits is one of the next values: 1024, 2048, 4096.
 To create an encrypted private key the additional arguments should be
-passed: $cipher is DES3, AES128, AES192, AES256; $password is 
+passed: $cipher is one of DES3, AES128, AES192, AES256; $password is 
 a passphrase.
 
 =cut
@@ -559,7 +558,6 @@ sub genpkey($$$$;$$) {
     return;
   }
 
-  my $sslcmd = '';
   my %types =
     (
       'RSA' => 'genrsa',
@@ -655,7 +653,7 @@ sub genpkey($$$$;$$) {
         type    => $type,
         cipher  => $cipher,
         passwd  => $password ? 'secret' : '',
-        keyout  => $keyout,
+        out     => $keyout,
       )
     ;
 
@@ -987,12 +985,12 @@ sub remove_pkey($$) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $pkeyname = 'pkey_' . $name;
+  my $kv = 'pkey_' . $name;
 
-  $db->fetch( $pkeyname )
+  $db->fetch( $kv )
     or return &send_error( $R, &ENTRY_NOTFOUND() );
 
-  $db->delete( $pkeyname )
+  $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
     : &send_error( $R, &EINT_ERROR() );
 }
@@ -1017,12 +1015,12 @@ sub list_pkeys($) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $pkeys = $db->like_json( '^pkey_' );
+  my $items = $db->like_json( '^pkey_' );
 
   # sanitize key text data
-  delete $_->{ 'keyout' } for ( @$pkeys );
+  delete $_->{ 'out' } for ( @$items );
 
-  &send_response( $R, 'keys', $pkeys );
+  &send_response( $R, 'keys', $items );
 }
 
 
@@ -1046,6 +1044,293 @@ sub remove_all_pkeys($) {
 
   my $db = Local::DB::UnQLite->new( $dbname );
   my $num = $db->delete_like( '^pkey_' );
+
+  &send_response( $R, 'deleted', $num );
+}
+
+
+=item B<gencsr>( $feersum, $name, $keyname, $subject, [ $keypass ] )
+
+Generates a new certificate request.
+
+=cut
+
+
+sub gencsr($$$$;$) {
+  my ( $R, $name, $keyname, $subj, $keypass ) = @_;
+
+
+  if ( not check_file_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME() );
+    return;
+  }
+
+  my @command = 
+    ( 
+      'openssl',
+      'req',
+      '-batch',
+      '-new',
+      '-key', '/dev/fd/3', 
+      '-out', '/dev/fd/4',
+    )
+  ;
+  my @fdsetup = 
+    (
+      "<", "/dev/null",
+      ">", \my $stdout,
+      "2>", \my $stderr,
+      "4>", \my $csrout,
+    )
+  ;
+
+  push @command, '-subj', $subj;
+
+  if ( $keypass ) {
+    if ( &check_password( $keypass ) ) {
+      push @command, '-passin fd:5';
+    } else {
+      &send_error( $R, &BAD_REQUEST() );
+      return;
+    }
+  }
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $kv = 'pkey_' . $keyname;
+  my $entry = $db->fetch_json( $kv )
+    or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+  my $keyin = $entry->{ 'out' }
+    or return &send_error( $R, &EINT_ERROR(), "missing key out");
+  push @fdsetup, "3<", \$keyin;
+
+  my $cv = run_cmd [ @command ], @fdsetup;
+
+  $cv->cb( sub {
+    &Scalar::Util::weaken( my $R = $R );
+
+    # check if command executed successfully
+    shift->recv()
+      and return &send_error( $R, &EINT_ERROR(), $stderr );
+
+    # find out a database name to store result
+    my $maindb = Local::DB::UnQLite->new( '__db__' );
+    my $dbname = $maindb->fetch( '_' )
+      || return &send_error( $R, &MISSING_DATABASE() );
+
+    # checks if database settings record exists
+    $maindb->fetch( $dbname )
+      or return &send_error( $R, &MISSING_DATABASE() );
+
+    my $db = Local::DB::UnQLite->new( $dbname );
+
+    # checks if a csr already generated for specified $name
+    my $csrname = 'csr_' . $name;
+
+    $db->fetch( $csrname )
+      and return &send_error( $R, &DUPLICATE_ENTRY() );
+
+    my %data =
+      (
+        name    => $name,
+        keyname => $keyname,
+        keypass => $keypass ? 'secret' : '',
+        subject => $subj,
+        out     => $csrout,
+      )
+    ;
+
+    $db->store( $csrname, encode_json( \%data ) )
+      ? &send_response( $R, 'name', $name )
+      : &send_error( $R, &EINT_ERROR() );
+  } );
+
+  return;
+}
+
+
+sub list_csrs($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $items = $db->like_json( '^csr_' );
+
+  # sanitize
+  delete $_->{ 'out' } for ( @$items );
+
+  &send_response( $R, 'csrs', $items );
+}
+
+sub remove_csr($$) {
+  my ( $R, $name ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $kv = 'csr_' . $name;
+
+  $db->fetch( $kv )
+    or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+  $db->delete( $kv )
+    ? &send_response( $R, 'name', $name )
+    : &send_error( $R, &EINT_ERROR() );
+}
+
+sub remove_all_csrs($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $num = $db->delete_like( '^csr_' );
+
+  &send_response( $R, 'deleted', $num );
+}
+
+
+sub list_crts($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $items = $db->like_json( '^crt_' );
+
+  # sanitize
+  delete $_->{ 'out' } for ( @$items );
+
+  &send_response( $R, 'crts', $items );
+}
+
+sub remove_crt($$) {
+  my ( $R, $name ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $kv = 'crt_' . $name;
+
+  $db->fetch( $kv )
+    or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+  $db->delete( $kv )
+    ? &send_response( $R, 'name', $name )
+    : &send_error( $R, &EINT_ERROR() );
+}
+
+sub remove_all_crts($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $num = $db->delete_like( '^crt_' );
+
+  &send_response( $R, 'deleted', $num );
+}
+
+
+sub list_crls($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $items = $db->like_json( '^crl_' );
+
+  # sanitize
+  delete $_->{ 'out' } for ( @$items );
+
+  &send_response( $R, 'crls', $items );
+}
+
+sub remove_crl($$) {
+  my ( $R, $name ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $kv = 'crl_' . $name;
+
+  $db->fetch( $kv )
+    or return &send_error( $R, &ENTRY_NOTFOUND() );
+
+  $db->delete( $kv )
+    ? &send_response( $R, 'name', $name )
+    : &send_error( $R, &EINT_ERROR() );
+}
+
+sub remove_all_crls($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $num = $db->delete_like( '^crl_' );
 
   &send_response( $R, 'deleted', $num );
 }

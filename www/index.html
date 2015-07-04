@@ -238,13 +238,27 @@
         <tbody data-bind="with: csr.Item">
           <tr>
             <th>Name</th>
-            <td class="editable"><input data-bind="value: Name"/></td>
+            <td class="editable"><input data-bind="value: Name" /></td>
+          </tr>
+          <tr>
+            <th>Key</th>
+            <td class="editable">
+              <select data-bind="options: $root.csr.KeysList, value: KeyName"></select>
+            </td>
+          </tr>
+          <tr>
+            <th>Password</th>
+            <td class="editable"><input data-bind="value: KeyPassword" /></td>
+          </tr>
+          <tr>
+            <th>Subject</th>
+            <td class="editable"><input data-bind="value: Subject" /></td>
           </tr>
           <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.csr.WipeToggle">Cancel</button>
+              <button class="btn" data-bind="click: $root.csr.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
@@ -260,15 +274,19 @@
     </div>
     <div class="embedView" data-bind="visible: csr.onTable()">
       <table id="Table">
-        <colgroup><col width="70%"></colgroup>
+        <colgroup><col width="30%"><col width="50%"><col width="15%"><col></colgroup>
         <thead data-bind="visible: csr.List().length > 0">
           <tr>
             <th>Name</th>
+            <th>Subject</th>
+            <th>Key</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: csr.List">
           <tr>
             <td data-bind="text: Name"></td>
+            <td data-bind="text: Subject"></td>
+            <td data-bind="text: KeyName"></td>
             <td><a href="#" data-bind="click: $root.csr.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>
@@ -294,7 +312,7 @@
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.crt.WipeToggle">Cancel</button>
+              <button class="btn" data-bind="click: $root.crt.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
@@ -344,7 +362,7 @@
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.crl.WipeToggle">Cancel</button>
+              <button class="btn" data-bind="click: $root.crl.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>

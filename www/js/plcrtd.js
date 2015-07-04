@@ -12,7 +12,7 @@ $( function() {
         'Missing a database'
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
-      pkOptions = [ 'RSA' ],
+      pkOptions = [ 'RSA' ], /* DSA is not implemented on server side yet */
       cipherOptions = [ 'DES3', 'AES128', 'AES192', 'AES256' ];
 
 
@@ -37,7 +37,7 @@ $( function() {
 
   function PrivateKey ( options ) {
     this.defaults = {
-      name: 'key',
+      name: 'key1',
       type: 'RSA',
       size: 2048,
       cipher: 'AES256',
@@ -61,15 +61,23 @@ $( function() {
 
 
   function Request ( options ) {
-    this.defaults = { name: 'csr' };
+    this.defaults = { 
+      name: 'csr1',
+      keyname: '',
+      keypass: '',
+      subject: '/CN=plcrtd'
+    };
     options = $.extend( {}, this.defaults, options );
 
     this.Name = ko.observable( options.name );
+    this.KeyName = ko.observable( options.keyname );
+    this.KeyPassword = ko.observable( options.keypass );
+    this.Subject = ko.observable( options.subject );
   }
 
   
   function Certificate ( options ) {
-    this.defaults = { name: 'crt' };
+    this.defaults = { name: 'crt1' };
     options = $( {}, this.defaults, options );
 
     this.Name = ko.observable( name );
@@ -468,7 +476,120 @@ $( function() {
     /*  Behaviours: Requests  */
 
     self.csr = new Page( {
-      CreateItem : function () { return new Request(); }
+      CreateItem : function () { return new Request(); },
+      Create : function ( ) {
+        var iam = this,
+            item = iam.Item(),
+            name = item.Name(),
+            keyname = item.KeyName(),
+            keypass = item.KeyPassword(),
+            subject = item.Subject();
+
+        clearError();
+
+        postJSON( { 
+          action: 'gencsr',
+          name: name,
+          keyname: keyname,
+          keypass: keypass,
+          subject: subject
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.push( item );
+            iam.List.sort( sortByName );
+            iam.CreateToggle();
+          } else {
+            riseError( response.err, response.msg );
+          }
+        } );
+      },
+      Remove : function ( entry ) {
+        var iam = this,
+            name = entry.Name();
+
+        clearError();
+
+        postJSON( {
+          action: 'removecsr',
+          name: name
+        },
+        function ( response ) {
+          if ( 'name' in response ) {
+            iam.List.remove( entry );
+          } else {
+            riseError( response.err );
+          }
+        } );
+      },
+      Wipe : function () {
+        var iam = this;
+
+        clearError();
+
+        postJSON( { action: 'removeallcsrs' }, function ( response ) {
+          if ( 'deleted' in response ) {
+            iam.List.removeAll();
+            iam.WipeToggle();
+          } else {
+            riseError( response.err );
+          }
+        } );
+      }
+    } );
+
+
+    function GetKeys () {
+      var iam = this;
+
+      clearError();
+      iam.KeysList.removeAll();
+
+      postJSON( { action: 'listkeys' }, function ( response ) {
+        if ( 'keys' in response ) {
+          var ary = response.keys,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.KeysList.push( ary[i].name );
+          }
+
+          iam.KeysList.sort();
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
+    }
+
+    function ListCertificateRequests ( ) {
+      var iam = this;
+
+      clearError();
+      iam.List.removeAll();
+
+      postJSON( { action: 'listcsrs' }, function ( response ) {
+        if ( 'csrs' in response ) {
+          var ary = response.csrs,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            console.log( ary[i] );
+            iam.List.push( new Request( ary[i] ) );
+          }
+
+          iam.List.sort( sortByName );
+        } else {
+          riseError( response.err );
+        }
+      } );
+    }
+
+    $.extend( self.csr, {
+      KeysList : ko.observableArray( [] ),
+      GetKeys  : GetKeys.bind( self.csr ),
+      ListCSRs : ListCertificateRequests.bind( self.csr )
     } );
 
 
@@ -570,17 +691,19 @@ $( function() {
           self.pk.onWipe( false );
           self.pk.ListPKs();
           break;
-        case 'certificates':
-          self.onCertificates( true );
-          self.crt.onTable( true );
-          self.crt.onCreate( false );
-          self.crt.onWipe( false );
-          break;
         case 'requests':
           self.onRequests( true );
           self.csr.onTable( true );
           self.csr.onCreate( false );
           self.csr.onWipe( false );
+          self.csr.GetKeys();
+          self.csr.ListCSRs();
+          break;
+        case 'certificates':
+          self.onCertificates( true );
+          self.crt.onTable( true );
+          self.crt.onCreate( false );
+          self.crt.onWipe( false );
           break;
         case 'revoked':
           self.onRevoked( true );
