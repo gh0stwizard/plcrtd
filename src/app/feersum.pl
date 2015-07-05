@@ -339,19 +339,27 @@ sub do_post($$$$) {
 
     &remove_all_crts( $R );
 
-  } elsif ( $action eq 'gencrl' ) {
-    # generates new certificate revocation list 
-    # and stores into user database
+  } elsif ( $action eq 'createcrl' ) {
+    # inserts a new certificate revocation list record
+    # into an user database
     my $name = $params->{ 'name' } || '';
     my %options = 
       (
-        cacrt   => $params->{ 'cacrt' } || '',
-        cakey   => $params->{ 'cakey' } || '',
-        cakeypw => $params->{ 'cakeypw' } || '',
+        desc  => $params->{ 'desc' }  || '',
+        cacrt => $params->{ 'cacrt' } || '',
+        cakey => $params->{ 'cakey' } || '',
       )
     ;
 
-    &gencrl( $R, $name, %options );
+    &create_crl( $R, $name, %options );
+
+  } elsif ( $action eq 'gencrl' ) {
+    # generates a new certificate revocation list file
+    # and stores it into an user database
+    my $name = $params->{ 'name' } || '';
+    my $cakeypw = $params->{ 'cakeypw' } || '';
+
+    &gencrl( $R, $name, $cakeypw );
 
   } elsif ( $action eq 'listcrls' ) {
     # return a list of all certificate revocation lists
@@ -1229,7 +1237,7 @@ sub gencrt($$%) {
   my ( $R, $name, %params ) = @_;
 
 
-  if ( not check_file_name( $name ) {
+  if ( not check_file_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -1536,25 +1544,76 @@ sub remove_all_crts($) {
 }
 
 
-=item B<gencrl>( $feersum, $name, %options )
+=item B<create_crl>( $feersum, $name, %options )
 
-Generates a new certificate revocation list with a name $name.
+Creates a new certificate revocation list record into a database.
+A list of valid options:
 
-A list of valid optiions:
-
-  cacrt   => $ca_crt,     # CA certificate name
-  cakey   => $ca_key,     # CA certificate key name
-  cakeypw => $ca_key_pw,  # CA certificate key password  
-
+  desc  => $description,
+  cacrt => $ca_crt_name,
+  cakey => $ca_key_name,
 
 =cut
 
 
-sub gencrl($$%) {
+sub create_crl($$%) {
   my ( $R, $name, %options ) = @_;
 
 
-  &send_error( $R, &NOT_IMPLEMENTED() );
+  if ( not check_file_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'name' );
+    return;
+  }
+
+  if ( not check_file_name( $options{ 'cacrt' } ) ) {
+    &send_error( $R, &INVALID_NAME(), 'cacrt' );
+    return;
+  }
+
+  if ( not check_file_name( $options{ 'cakey' } ) ) {
+    &send_error( $R, &INVALID_NAME(), 'cakey' );
+    return;
+  }
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $kv = 'crl_' . $name;
+
+  # checks if a crl already generated for specified $name
+  $db->fetch( $kv )
+    and return &send_error( $R, &DUPLICATE_ENTRY() );
+
+  my %data =
+    (
+      name  => $name,
+      desc  => $options{ 'desc' },
+      cacrt => $options{ 'cacrt' },
+      cakey => $options{ 'cakey' },
+    )
+  ;
+
+  $db->store( $kv, encode_json( \%data ) )
+    ? &send_response( $R, 'name', $name )
+    : &send_error( $R, &EINT_ERROR() );
+}
+
+
+=item B<gencrl>()
+
+Generates a certificate revocation list file.
+
+=cut
+
+
+sub gencrl() {
+  
 }
 
 

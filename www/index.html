@@ -422,7 +422,7 @@
     </div>
   </div>
 
-  <!-- Revoked Page //-->
+  <!-- Revocation List Page //-->
   <div class="Page" data-bind="visible: onRevoked()">
     <h1>Certificate revocation lists</h1>
     <button class="btn" data-bind="click: crl.CreateToggle">Create CRL</button>
@@ -433,13 +433,34 @@
         <tbody data-bind="with: crl.Item">
           <tr>
             <th class="w20">Name</th>
-            <td class="editable"><input data-bind="value: Name"/></td>
+            <td class="editable"><input data-bind="value: Name" /></td>
+          </tr>
+          <tr>
+            <th class="w20">Description</th>
+            <td class="editable">
+              <input data-bind="value: Description" />
+            </td>
+          </tr>
+          <tr>
+            <th class="w20">CA certificate</th>
+            <td class="editable">
+              <select data-bind="options: $root.crl.CRTs,
+                                value: CACrtName"></select>
+            </td>
+          </tr>
+          <tr>
+            <th class="w20">CA key</th>
+            <td class="editable">
+              <select data-bind="options: $root.crl.Keys,
+                                value: CAKeyName"></select>
+            </td>
           </tr>
           <tr>
             <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
-              <button class="btn" data-bind="click: $root.crl.CreateToggle">Cancel</button>
+              <button class="btn"
+                data-bind="click: $root.crl.CreateToggle">Cancel</button>
             </td>
           </tr>
         </tbody>
@@ -457,15 +478,26 @@
       <table class="vTable">
         <thead data-bind="visible: crl.List().length > 0">
           <tr>
-            <th class="w70">Name</th>
-            <th>&nbsp;</th>
+            <th class="w30">Name</th>
+            <th class="w30">Description</th>
+            <th class="w15">CA</th>
+            <th class="w15">CA key</th>
+            <th class="w10" colspan="2">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crl.List">
           <tr>
-            <td class="w70" data-bind="text: Name"></td>
-            <td>
-              <a href="#" data-bind="click: $root.crl.Remove" title="Remove">Remove</a>
+            <td class="w30" data-bind="text: Name"></td>
+            <td class="w20" data-bind="text: Description"></td>
+            <td class="w15" data-bind="text: CACrtName"></td>
+            <td class="w15" data-bind="text: CAKeyName"></td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.crl.Activate" 
+                 title="Activate">Activate</a>
+            </td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.crl.Remove"
+                 title="Remove">Remove</a>
             </td>
           </tr>
         </tbody>

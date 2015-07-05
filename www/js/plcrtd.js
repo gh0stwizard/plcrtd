@@ -52,9 +52,9 @@ $( function() {
 
   function PrivateKey ( options ) {
     this.defaults = {
-      name: 'key1',
-      type: 'RSA',
-      size: 2048,
+      name:   'key1',
+      type:   'RSA',
+      size:   2048,
       cipher: 'AES256',
       passwd: null
     };
@@ -77,11 +77,11 @@ $( function() {
 
   function Request ( options ) {
     this.defaults = { 
-      name: 'csr1',
-      keyname: '',
-      keypass: '',
-      subject: '/CN=plcrtd',
-      digest: 'SHA1'
+      name:     'csr1',
+      keyname:  '',
+      keypass:  '',
+      subject:  '/CN=plcrtd',
+      digest:   'SHA1'
     };
     options = $.extend( { }, this.defaults, options );
 
@@ -136,11 +136,21 @@ $( function() {
 
   function RevocationList ( options ) {
     this.defaults = {
-      name: 'crl1'
+      name:     'crl1',
+      desc:     '',
+      days:     30,
+      cacrt:    '',
+      cakey:    '',
+      cakeypw:  ''
     };
     options = $.extend( { }, this.defaults, options );
 
     this.Name = ko.observable( options.name );
+    this.Description = ko.observable( options.desc );
+    this.Days = ko.observable( options.days );
+    this.CACrtName = ko.observable( options.cacrt );
+    this.CAKeyName = ko.observable( options.cakey );
+    this.CAKeyPassword = ko.observable( options.cakeypw );
   }
 
 
@@ -792,19 +802,22 @@ $( function() {
     /*  Behaviours: Revocation Lists  */
 
     self.crl = new Page( {
-      CreateItem : function () { return new RevocationList(); },
-      Create : function ( ) {
+      CreateItem: function ( ) { return new RevocationList(); },
+      Create: function ( ) {
         var iam = this,
             item = iam.Item(),
-            name = item.Name();
+            payload = {
+              action:   'createcrl',
+              name:     item.Name(),
+              desc:     item.Description(),
+              days:     item.Days(),
+              cacrt:    item.CACrtName(),
+              cakey:    item.CAKeyName()
+            };
 
         clearError();
 
-        postJSON( { 
-          action: 'gencrl',
-          name: name
-        },
-        function ( response ) {
+        postJSON( payload, function ( response ) {
           if ( 'name' in response ) {
             iam.List.push( item );
             iam.List.sort( sortByName );
@@ -814,7 +827,7 @@ $( function() {
           }
         } );
       },
-      Remove : function ( entry ) {
+      Remove: function ( entry ) {
         var iam = this,
             name = entry.Name();
 
@@ -832,7 +845,7 @@ $( function() {
           }
         } );
       },
-      Wipe : function () {
+      Wipe: function ( ) {
         var iam = this;
 
         clearError();
@@ -848,7 +861,7 @@ $( function() {
       }
     } );
 
-    function ListCRL ( ) {
+    function ListCRLs ( ) {
       var iam = this;
 
       clearError();
@@ -860,7 +873,7 @@ $( function() {
               len = ary.length;
 
           for ( var i = 0; i < len; i++ ) {
-            iam.List.push( new Rekoved( ary[i] ) );
+            iam.List.push( new RevocationList( ary[i] ) );
           }
 
           iam.List.sort( sortByName );
@@ -870,8 +883,48 @@ $( function() {
       } );
     }
 
-    $.extend( self.crt, {
-      ListCRLs : ListCRL.bind( self.crt )
+    function GetCRTs ( ) {
+      var iam = this;
+
+      clearError();
+      iam.CRTs.removeAll();
+
+      postJSON( { action: 'listcrts' }, function ( response ) {
+        if ( 'crts' in response ) {
+          var ary = response.crts,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.CRTs.push( ary[i].name );
+          }
+
+          iam.CRTs.sort();
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
+    }
+
+    function GenerateCRL ( entry ) {
+      var iam = this;
+
+    }
+
+    function ActivateCRL ( entry ) {
+      var iam = this;
+
+    }
+
+    $.extend( self.crl, {
+      ListCRLs:   ListCRLs.bind( self.crl ),
+      CRTs:       ko.observableArray( [ ]),
+      GetCRTs:    GetCRTs.bind( self.crl ),
+      Keys:       ko.observableArray( [ ] ),
+      GetKeys:    GetKeys.bind( self.crl ),
+      Generate:   GenerateCRL.bind( self.crl ),
+      Activate:   ActivateCRL.bind( self.crl )
     } );
 
 
@@ -879,6 +932,7 @@ $( function() {
 
     function cleanAll () {
       clearError();
+      clearData();
       self.onAbout( false );
       self.onConfigure( false );
       self.onPrivateKeys( false );
@@ -887,9 +941,13 @@ $( function() {
       self.onRevoked( false );
     }
 
-    function clearError () {
+    function clearError ( ) {
       self.errorMessage( null );
       self.errorDescription( null );
+    }
+
+    function clearData ( ) {
+      self.cfg.Settings( null );
     }
 
     function riseError ( ) {
@@ -898,6 +956,9 @@ $( function() {
       if ( arguments.length > 1 ) {
         self.errorDescription( arguments[1] );
       }
+
+      /* cleanup */
+      self.cfg.Settings( null );
 
       return false;
     }
@@ -981,7 +1042,9 @@ $( function() {
           self.crl.onTable( true );
           self.crl.onCreate( false );
           self.crl.onWipe( false );
-          self.crt.ListCRLs();
+          self.crl.GetCRTs();
+          self.crl.GetKeys();
+          self.crl.ListCRLs();
           break;
         case 'about':
           self.onAbout( true );
