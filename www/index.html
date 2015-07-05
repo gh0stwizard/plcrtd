@@ -48,7 +48,7 @@
           href="https://gist.github.com/mtigas/952344" >howto</a>
           written by 
        <a href="https://gist.github.com/mtigas"
-          title="About user mtigas on GitHub">mtigas</a>.
+          title="About user mtigas on GitHub">mtigas</a>
     </p>
     <h2>Goals</h2>
     <ul>
@@ -63,7 +63,7 @@
       <a href="https://github.com/gh0stwizard/plcrtd"
          title="plcrtd on GitHub">here</a>.</p>
   </div>
-  
+
   <!-- Configuration Page //-->
   <div class="Page" data-bind="visible: onConfigure()">
     <h1>Configuration management</h1>
@@ -142,9 +142,9 @@
         </tbody>
       </table>
       </form>
-    </div>    
+    </div>
   </div>
-  
+
   <!-- Private Keys Page //-->
   <div class="Page" data-bind="visible: onPrivateKeys()">
     <h1>Private keys</h1>
@@ -215,7 +215,9 @@
             <td data-bind="text: Encrypted"></td>
             <td data-bind="text: Type"></td>
             <td data-bind="text: Size"></td>
-            <td><a href="#" data-bind="click: $root.pk.Remove" title="Remove">Remove</a></td>
+            <td>
+              <a href="#" data-bind="click: $root.pk.Remove" title="Remove">Remove</a>
+            </td>
           </tr>
         </tbody>
       </table>
