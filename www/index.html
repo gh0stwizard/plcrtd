@@ -255,6 +255,12 @@
             <td class="editable"><input data-bind="value: Subject" /></td>
           </tr>
           <tr>
+            <th>Digest</th>
+            <td class="editable">
+              <select data-bind="options: digestOptions, value: Digest"></select>
+            </td>
+          </tr>
+          <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
@@ -274,12 +280,19 @@
     </div>
     <div class="embedView" data-bind="visible: csr.onTable()">
       <table id="Table">
-        <colgroup><col width="30%"><col width="50%"><col width="15%"><col></colgroup>
+        <colgroup>
+          <col width="30%"><!-- name //-->
+          <col width="40%"><!-- subject //-->
+          <col width="15%"><!-- keyname //-->
+          <col width="10%"><!-- digest //-->
+          <col width="5%"><!-- actions //-->
+        </colgroup>
         <thead data-bind="visible: csr.List().length > 0">
           <tr>
             <th>Name</th>
             <th>Subject</th>
             <th>Key</th>
+            <th>Digest</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: csr.List">
@@ -287,6 +300,7 @@
             <td data-bind="text: Name"></td>
             <td data-bind="text: Subject"></td>
             <td data-bind="text: KeyName"></td>
+            <td data-bind="text: Digest"></td>
             <td><a href="#" data-bind="click: $root.csr.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>

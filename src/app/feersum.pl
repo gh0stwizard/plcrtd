@@ -54,6 +54,21 @@ my @HEADER_PEM =
   )
 ;
 
+# ref.: openssl dgst --help
+my %DIGESTS =
+  (
+     'MD5'       => '-md5',
+     'SHA1'      => '-sha1',
+     'SHA224'    => '-sha224',
+     'SHA256'    => '-sha256',
+     'SHA384'    => '-sha384',
+     'SHA512'    => '-sha512',
+     'RIPEMD160' => '-ripemd160',
+     'WHIRLPOOL' => '-whirlpool',
+  )
+;
+
+
 =head1 FUNCTIONS
 
 =over 4
@@ -250,11 +265,16 @@ sub do_post($$$$) {
   } elsif ( $action eq 'gencsr' ) {
     # generates new certificate requests and stores into user database
     my $name = $params->{ 'name' } || '';
-    my $keyname = $params->{ 'keyname' } || '';
-    my $subject = $params->{ 'subject' } || '/CN=plcrtd';
-    my $keypass = $params->{ 'keypass' } || '';
+    my %options =
+      (
+        'keyname' => $params->{ 'keyname' } || '',
+        'subject' => $params->{ 'subject' } || '',
+        'keypass' => $params->{ 'keypass' } || '',
+        'digest'  => $params->{ 'digest' } || '',
+      )
+    ;
 
-    &gencsr( $R, $name, $keyname, $subject, $keypass );
+    &gencsr( $R, $name, %options );
 
   } elsif ( $action eq 'listcsrs' ) {
     # list of certificate requests
@@ -1130,19 +1150,29 @@ sub remove_all_pkeys($) {
 }
 
 
-=item B<gencsr>( $feersum, $name, $keyname, $subject, [ $keypass ] )
+=item B<gencsr>( $feersum, $name, %options )
 
-Generates a new certificate request.
+Generates a new certificate request. A list of valid options:
+
+  keyname => $keyname,
+  subject => $subject,
+  keypass => $keypass,    # optional
+  digest  => $digest,     # optional
 
 =cut
 
 
-sub gencsr($$$$;$) {
-  my ( $R, $name, $keyname, $subj, $keypass ) = @_;
+sub gencsr($$%) {
+  my ( $R, $name, %options ) = @_;
 
 
   if ( not check_file_name( $name ) ) {
-    &send_error( $R, &INVALID_NAME() );
+    &send_error( $R, &INVALID_NAME(), 'name' );
+    return;
+  }
+
+  if ( not check_file_name( $options{ 'keyname' } ) ) {
+    &send_error( $R, &INVALID_NAME(), 'keyname' );
     return;
   }
 
@@ -1165,10 +1195,10 @@ sub gencsr($$$$;$) {
     )
   ;
 
-  push @command, '-subj', $subj;
+  push @command, '-subj', $options{ 'subject' };
   push @command, '-passin', 'fd:5';
 
-  if ( $keypass ) {
+  if ( my $keypass = $options{ 'keypass' } ) {
     if ( &check_password( $keypass ) ) {
       push @fdsetup, "5<", \$keypass;
     } else {
@@ -1180,6 +1210,15 @@ sub gencsr($$$$;$) {
     push @fdsetup, "5<", \$passwd;
   }
 
+  if ( my $digest = $options{ 'digest' } ) {
+    if ( exists $DIGESTS{ $digest } ) {
+      push @command, $DIGESTS{ $digest };
+    } else {
+      &send_error( $R, &BAD_REQUEST(), 'digest' );
+      return;
+    }  
+  }
+
   my $maindb = Local::DB::UnQLite->new( '__db__' );
   my $dbname = $maindb->fetch( '_' )
     or return &send_error( $R, &MISSING_DATABASE() );
@@ -1188,13 +1227,14 @@ sub gencsr($$$$;$) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $kv = 'key_' . $keyname;
+  my $kv = 'key_' . $options{ 'keyname' };
   my $entry = $db->fetch_json( $kv )
     or return &send_error( $R, &ENTRY_NOTFOUND() );
 
   my $keyin = $entry->{ 'out' }
-    or return &send_error( $R, &EINT_ERROR(), "missing key out");
+    or return &send_error( $R, &EINT_ERROR(), "key out");
   push @fdsetup, "3<", \$keyin;
+
 
   my $cv = run_cmd [ @command ], @fdsetup;
 
@@ -1225,9 +1265,10 @@ sub gencsr($$$$;$) {
     my %data =
       (
         name    => $name,
-        keyname => $keyname,
-        keypass => $keypass ? 'secret' : '',
-        subject => $subj,
+        keyname => $options{ 'keyname' },
+        keypass => $options{ 'keypass' } ? 'secret' : '',
+        subject => $options{ 'subject' },
+        digest  => $options{ 'digest' },
         out     => $csrout,
       )
     ;
@@ -1454,23 +1495,10 @@ sub gencrt($$%) {
     }
 
     # + digest
-    # ref.: openssl dgst --help
-    my %digests =
-      (
-        'MD5'       => '-md5',
-        'SHA1'      => '-sha1',
-        'SHA224'    => '-sha224',
-        'SHA256'    => '-sha256',
-        'SHA384'    => '-sha384',
-        'SHA512'    => '-sha512',
-        'RIPEMD160' => '-ripemd160',
-        'WHIRLPOOL' => '-whirlpool',
-      )
-    ;
 
     if ( my $digest = $params{ 'digest' } ) {
-      if ( exists $digests{ $digest } ) {
-        push @command, $digests{ $digest };
+      if ( exists $DIGESTS{ $digest } ) {
+        push @command, $DIGESTS{ $digest };
       } else {
         &send_error( $R, &BAD_REQUEST() );
         return;

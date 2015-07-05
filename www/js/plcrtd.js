@@ -80,7 +80,8 @@ $( function() {
       name: 'csr1',
       keyname: '',
       keypass: '',
-      subject: '/CN=plcrtd'
+      subject: '/CN=plcrtd',
+      digest: 'SHA1'
     };
     options = $.extend( { }, this.defaults, options );
 
@@ -88,6 +89,7 @@ $( function() {
     this.KeyName = ko.observable( options.keyname );
     this.KeyPassword = ko.observable( options.keypass );
     this.Subject = ko.observable( options.subject );
+    this.Digest = ko.observable( options.digest );
   }
 
   
@@ -528,21 +530,18 @@ $( function() {
       Create : function ( ) {
         var iam = this,
             item = iam.Item(),
-            name = item.Name(),
-            keyname = item.KeyName(),
-            keypass = item.KeyPassword(),
-            subject = item.Subject();
+            payload = {
+              action:   'gencsr',
+              name:     item.Name(),
+              keyname:  item.KeyName(),
+              keypass:  item.KeyPassword(),
+              subject:  item.Subject(),
+              digest:   item.Digest()
+            };
 
         clearError();
 
-        postJSON( { 
-          action: 'gencsr',
-          name: name,
-          keyname: keyname,
-          keypass: keypass,
-          subject: subject
-        },
-        function ( response ) {
+        postJSON( payload, function ( response ) {
           if ( 'name' in response ) {
             iam.List.push( item );
             iam.List.sort( sortByName );
