@@ -39,7 +39,7 @@ use File::Spec::Functions qw( catfile canonpath );
 use JSON::XS qw( decode_json );
 
 
-our $VERSION = '1.006'; $VERSION = eval "$VERSION";
+our $VERSION = '1.007'; $VERSION = eval "$VERSION";
 
 
 =head1 FUNCTIONS
@@ -509,7 +509,7 @@ sub like($$) {
   my $regexp = shift;
 
   if ( ref $regexp ne 'Regexp' ) {
-    $regexp = qr/\Q$regexp\E/;
+    $regexp = qr/$regexp/;
   }
 
   my @list;

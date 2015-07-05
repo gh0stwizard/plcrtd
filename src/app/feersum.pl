@@ -1151,14 +1151,18 @@ sub gencsr($$$$;$) {
   ;
 
   push @command, '-subj', $subj;
+  push @command, '-passin', 'fd:5';
 
   if ( $keypass ) {
     if ( &check_password( $keypass ) ) {
-      push @command, '-passin fd:5';
+      push @fdsetup, "5<", \$keypass;
     } else {
       &send_error( $R, &BAD_REQUEST() );
       return;
     }
+  } else {
+    my $passwd = 'test';
+    push @fdsetup, "5<", \$passwd;
   }
 
   my $maindb = Local::DB::UnQLite->new( '__db__' );
