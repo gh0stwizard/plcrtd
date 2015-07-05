@@ -275,18 +275,33 @@ sub do_post($$$$) {
   } elsif ( $action eq 'gencrt' ) {
     # generates new certificate and stores into user database
     my $name = $params->{ 'name' } || '';
-    my $days = int( $params->{ 'days' } || 0 );
-    my %settings = ( days => $days );
+    my $days = int( $params->{ 'days' } || 30 );
+    my $desc = $params->{ 'desc' } || '';
+    my $serial = int( $params->{ 'serial' } || 0 );
+    my $template = $params->{ 'template' } || 'Default';
+
+    my %settings = 
+      (
+        name      => $name,
+        days      => $days,
+        desc      => $desc,
+        serial    => $serial,
+        template  => $template,
+      )
+    ;
 
     if ( my $csrname = $params->{ 'csrname' } ) {
-      $settings{ 'csrname' } = $csrname;
-      $settings{ 'serial' } = $params->{ 'serial' } || '01';
-      $settings{ 'caname' } = $params->{ 'caname' } || '';
-      $settings{ 'capass' } = $params->{ 'capass' } || '';
+      # self-signed certificate
+      $settings{ 'csrname' }  = $csrname;
+      $settings{ 'cacrt' }    = $params->{ 'cacrt' } || '';
+      $settings{ 'cakey' }    = $params->{ 'cakey' } || '';
+      $settings{ 'cakeypw' }  = $params->{ 'cakeypw' } || '';
     } else {
+      # common certificate
       $settings{ 'keyname' } = $params->{ 'keyname' } || '';
       $settings{ 'keypass' } = $params->{ 'keypass' } || '';
       $settings{ 'subject' } = $params->{ 'subject' } || '';
+      $settings{ 'digest' }  = $params->{ 'digest' } || '';
     }
 
     &gencrt( $R, $name, %settings );
@@ -690,7 +705,7 @@ sub genkey($$$$;$$) {
     my $db = Local::DB::UnQLite->new( $dbname );
 
     # checks if a key already generated for specified $name
-    my $pkeyname = 'pkey_' . $name;
+    my $pkeyname = 'key_' . $name;
 
     $db->fetch( $pkeyname )
       and return &send_error( $R, &DUPLICATE_ENTRY() );
@@ -1051,7 +1066,7 @@ sub remove_pkey($$) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $kv = 'pkey_' . $name;
+  my $kv = 'key_' . $name;
 
   $db->fetch( $kv )
     or return &send_error( $R, &ENTRY_NOTFOUND() );
@@ -1081,7 +1096,7 @@ sub list_pkeys($) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $items = $db->like_json( '^pkey_' );
+  my $items = $db->like_json( '^key_' );
 
   # sanitize key text data
   delete $_->{ 'out' } for ( @$items );
@@ -1109,7 +1124,7 @@ sub remove_all_pkeys($) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $num = $db->delete_like( '^pkey_' );
+  my $num = $db->delete_like( '^key_' );
 
   &send_response( $R, 'deleted', $num );
 }
@@ -1173,7 +1188,7 @@ sub gencsr($$$$;$) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
-  my $kv = 'pkey_' . $keyname;
+  my $kv = 'key_' . $keyname;
   my $entry = $db->fetch_json( $kv )
     or return &send_error( $R, &ENTRY_NOTFOUND() );
 
@@ -1311,20 +1326,23 @@ sub remove_all_csrs($) {
 
 =item B<gencrt>( $feersum, $name, %params )
 
-Generates a new certificate. An example of parameters for CA certificate:
+Generates a new certificate.
+An example of an options %params for a common certificate:
 
-  keyname => $keyname,
-  keypass => $keypass, # optional
+  keyname => $keyname,    # private key
+  keypass => $keypass,    # optional
   days    => $days,
-  subject => $subject,
+  subject => $subject,    # optional
+  digest  => $digest,     # optional
 
-An example of parameters for client self-signed certificate:
+An example of an options %params for a self-signed certificate:
 
-  csrname => $csrname,
+  csrname => $csrname,    # csr name
   days    => $days,
-  caname  => $caname,
-  capass  => $capass,  # optional
-  serial  => $serial,  # optional
+  cacrt   => $ca_crt,     # CA certificate name
+  cakey   => $ca_key,     # CA certificate key name
+  cakeypw => $ca_key_pw,  # CA certificate passsword, optional
+  serial  => $serial,     # optional
 
 
 =cut 
@@ -1351,7 +1369,7 @@ sub gencrt($$%) {
       "<",  "/dev/null",
       ">",  \my $stdout,
       "2>", \my $stderr,
-      "3<", \my $crtout,
+      "3>", \my $crtout,
     )
   ;
 
@@ -1364,46 +1382,57 @@ sub gencrt($$%) {
       return;
     }
 
-    if ( not check_file_name( $params{ 'caname' } ) ) {
+    if ( not check_file_name( $params{ 'cacrt' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
 
-    push @command, 'x509', '-req', 
-      '-out',   '/dev/fd/3',
-      '-in',    '/dev/fd/4', # csr
-      '-CA',    '/dev/fd/5', # ca crt
-      '-CAkey', '/dev/fd/6', # ca key
-    ;
-
-    # + set_serial
-    if ( $params{ 'serial' } ) {
-      push @command, '-set_serial', $params{ 'serial' };
+    if ( not check_file_name( $params{ 'cakey' } ) ) {
+      &send_error( $R, &INVALID_NAME() );
+      return;
     }
 
+    push @command,
+      'x509',       '-req',
+      '-out',       '/dev/fd/3',
+      '-in',        '/dev/fd/4', # csr
+      '-CA',        '/dev/fd/5', # ca crt
+      '-CAkey',     '/dev/fd/6', # ca key
+      '-passin',    'fd:8',
+    ;
+
     # + passin
-    if ( my $passwd = $params{ 'capass' } ) {
+    if ( my $passwd = $params{ 'cakeypw' } ) {
       if ( &check_password( $passwd ) ) {
-        push @command, '-passin fd:7';
-        push @fdsetup, '7<', \$passwd;
+        push @fdsetup, '8<', \$passwd;
       } else {
         &send_error( $R, &BAD_REQUEST() );
         return;
       }
+    } else {
+      my $passwd = 'test';
+      push @fdsetup, '8<', \$passwd;
     }
+
+    # TODO digest?
+    # possible options: -md2|-md5|-sha1|-mdc2
+    # default is SHA1
 
     $isSelfSign = 1;
 
   } else {
-    # probably CA certificate
+    # common certificate
     if ( not check_file_name( $params{ 'keyname' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
 
-    push @command, 'req', '-batch', '-new', '-x509',
-      '-out', '/dev/fd/3',
-      '-key', '/dev/fd/4',
+    push @command,
+      'req',      '-batch',
+      '-new',     '-x509',
+      '-out',     '/dev/fd/3',
+      '-key',     '/dev/fd/4',
+      '-passin',  'fd:5',
     ;
 
     # + subject
@@ -1414,8 +1443,34 @@ sub gencrt($$%) {
     # + passin
     if ( my $passwd = $params{ 'keypass' } ) {
       if ( &check_password( $passwd ) ) {
-        push @command, '-passin fd:5';
         push @fdsetup, '5<', \$passwd;
+      } else {
+        &send_error( $R, &BAD_REQUEST() );
+        return;
+      }
+    } else {
+      my $passwd = 'test';
+      push @fdsetup, '5<', \$passwd;
+    }
+
+    # + digest
+    # ref.: openssl dgst --help
+    my %digests =
+      (
+        'MD5'       => '-md5',
+        'SHA1'      => '-sha1',
+        'SHA224'    => '-sha224',
+        'SHA256'    => '-sha256',
+        'SHA384'    => '-sha384',
+        'SHA512'    => '-sha512',
+        'RIPEMD160' => '-ripemd160',
+        'WHIRLPOOL' => '-whirlpool',
+      )
+    ;
+
+    if ( my $digest = $params{ 'digest' } ) {
+      if ( exists $digests{ $digest } ) {
+        push @command, $digests{ $digest };
       } else {
         &send_error( $R, &BAD_REQUEST() );
         return;
@@ -1426,6 +1481,8 @@ sub gencrt($$%) {
   # + days
   push @command, '-days', $params{ 'days' };
 
+  # + set_serial
+  push @command, '-set_serial', $params{ 'serial' };
 
   my $maindb = Local::DB::UnQLite->new( '__db__' );
   my $dbname = $maindb->fetch( '_' )
@@ -1438,6 +1495,7 @@ sub gencrt($$%) {
 
   # retrieving neccessary keys and certs.
   if ( $isSelfSign ) {
+    # -in csr
     my $kv_csr = 'csr_' . $params{ 'csrname' };
     my $csr = $db->fetch_json( $kv_csr )
       or return &send_error( $R, &ENTRY_NOTFOUND() );
@@ -1445,14 +1503,16 @@ sub gencrt($$%) {
       or return &send_error( $R, &EINT_ERROR(), "missing csr" );
     push @fdsetup, "4<", \$csrin;
 
-    my $kv_ca_crt = 'crt_' . $params{ 'caname' };
+    # -CA
+    my $kv_ca_crt = 'crt_' . $params{ 'cacrt' };
     my $crt = $db->fetch_json( $kv_ca_crt )
       or return &send_error( $R, &ENTRY_NOTFOUND() );
     my $crtin = $crt->{ 'out' }
-      or return &send_error( $R, &EINT_ERROR(), "missing ca" );
+      or return &send_error( $R, &EINT_ERROR(), "missing ca crt" );
     push @fdsetup, "5<", \$crtin;
 
-    my $kv_ca_key = 'key_' . $params{ 'capass' };
+    # -CAkey
+    my $kv_ca_key = 'key_' . $params{ 'cakey' };
     my $key = $db->fetch_json( $kv_ca_key )
       or return &send_error( $R, &ENTRY_NOTFOUND() );
     my $keyin = $key->{ 'out' }
@@ -1460,9 +1520,10 @@ sub gencrt($$%) {
     push @fdsetup, "6<", \$keyin;
 
   } else {
+    # -key
     my $kv = 'key_' . $params{ 'keyname' };
     my $key = $db->fetch_json( $kv )
-      or return &send_error( $R, &ENTRY_NOTFOUND() );
+      or return &send_error( $R, &ENTRY_NOTFOUND(), 'invalid keyname?' );
 
     my $keyin = $key->{ 'out' }
       or return &send_error( $R, &EINT_ERROR(), "missing key" );
@@ -1498,21 +1559,25 @@ sub gencrt($$%) {
 
     my %data =
       (
-        name    => $params{ 'name' },
-        days    => $params{ 'days' },
-        out     => $crtout,
+        name      => $params{ 'name' },
+        desc      => $params{ 'desc' },
+        days      => $params{ 'days' },
+        serial    => $params{ 'serial' },
+        template  => $params{ 'template' },
+        out       => $crtout,
       )
     ;
 
     if ( $isSelfSign ) {
-      $data{ 'csrname' } = $params{ 'csrname' };
-      $data{ 'caname' } = $params{ 'caname' };
-      $data{ 'capass' } = $params{ 'capass' } ? 'secret' : '';
-      $data{ 'serial' } = $params{ 'serial' };
+      $data{ 'csrname' }  = $params{ 'csrname' };
+      $data{ 'cacrt' }    = $params{ 'cacrt' };
+      $data{ 'cakey' }    = $params{ 'cakey' };
+      $data{ 'cakeypw' }  = $params{ 'cakeypw' } ? 'secret' : '';
     } else {
-      $data{ 'keyname' } = $params{ 'keyname' };
-      $data{ 'keypass' } = $params{ 'keypass' } ? 'secret' : '';
-      $data{ 'subject' } = $params{ 'subject' };
+      $data{ 'keyname' }  = $params{ 'keyname' };
+      $data{ 'keypass' }  = $params{ 'keypass' } ? 'secret' : '';
+      $data{ 'subject' }  = $params{ 'subject' };
+      $data{ 'digest' }   = $params{ 'digest' };
     }
 
     $db->store( $kv, encode_json( \%data ) )

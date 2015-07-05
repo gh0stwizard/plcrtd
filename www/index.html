@@ -243,7 +243,7 @@
           <tr>
             <th>Key</th>
             <td class="editable">
-              <select data-bind="options: $root.csr.KeysList, value: KeyName"></select>
+              <select data-bind="options: $root.csr.Keys, value: KeyName"></select>
             </td>
           </tr>
           <tr>
@@ -313,6 +313,64 @@
             <td class="editable"><input data-bind="value: Description" /></td>
           </tr>
           <tr>
+            <th>Days</th>
+            <td class="editable"><input data-bind="value: Days" /></td>
+          </tr>
+          <tr>
+            <th>Serial</th>
+            <td class="editable"><input data-bind="value: Serial" /></td>
+          </tr>
+          <tr>
+            <th>Template</th>
+            <td class="editable">
+              <select data-bind="options: templateOptions, value: Template"></select>
+            </td>
+          </tr>
+          <!-- self-signed options//-->
+          <tr data-bind="visible: Template() == 'Self-signed'">
+            <th>Certificate Request</th>
+            <td class="editable">
+              <select data-bind="options: $root.crt.CSRs, value: CsrName"></select>
+            </td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Self-signed'">
+            <th>CA Certificate</th>
+            <td class="editable">
+              <select data-bind="options: $root.crt.CRTs, value: CACrtName"></select>
+            </td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Self-signed'">
+            <th>CA Key</th>
+            <td class="editable">
+              <select data-bind="options: $root.crt.Keys, value: CAKeyName"></select>
+            </td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Self-signed'">
+            <th>CA Password</th>
+            <td class="editable"><input data-bind="value: CAKeyPassword" /></td>
+          </tr>
+          <!-- common certificate //-->
+          <tr data-bind="visible: Template() == 'Default'">
+            <th>Key</th>
+            <td class="editable">
+              <select data-bind="options: $root.crt.Keys, value: KeyName"></select>
+            </td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Default'">
+            <th>Password</th>
+            <td class="editable"><input data-bind="value: KeyPassword" /></td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Default'">
+            <th>Subject</th>
+            <td class="editable"><input data-bind="value: Subject" /></td>
+          </tr>
+          <tr data-bind="visible: Template() == 'Default'">
+            <th>Digest</th>
+            <td class="editable">
+              <select data-bind="options: digestOptions, value: Digest"></select>
+            </td>
+          </tr>
+          <tr>
             <td class="button">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
@@ -332,15 +390,30 @@
     </div>
     <div class="embedView" data-bind="visible: crt.onTable()">
       <table id="Table">
-        <colgroup><col width="70%"></colgroup>
+        <colgroup>
+          <col width="30%"><!-- name //-->
+          <col width="30%"><!-- description //-->
+          <col width="5%"><!-- days //-->
+          <col width="5%"><!-- serial //-->
+          <col width="25%"><!-- template //-->
+          <col width="5%"><!-- actions //-->
+        </colgroup>
         <thead data-bind="visible: crt.List().length > 0">
           <tr>
             <th>Name</th>
+            <th>Description</th>
+            <th>Days</th>
+            <th>Serial</th>
+            <th>Template</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crt.List">
           <tr>
             <td data-bind="text: Name"></td>
+            <td data-bind="text: Description"></td>
+            <td data-bind="text: Days"></td>
+            <td data-bind="text: Serial"></td>
+            <td data-bind="text: Template"></td>
             <td><a href="#" data-bind="click: $root.crt.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>

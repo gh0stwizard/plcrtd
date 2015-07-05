@@ -13,7 +13,22 @@ $( function() {
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
       pkOptions = [ 'RSA' ], /* DSA is not implemented on server side yet */
-      cipherOptions = [ 'DES3', 'AES128', 'AES192', 'AES256' ];
+      cipherOptions = [
+        'DES3',
+        'AES128',
+        'AES192',
+        'AES256'
+      ],
+      digestOptions = [ 
+        'MD5',
+        'SHA1',
+        'SHA224',
+        'SHA256',
+        'SHA384',
+        'SHA512',
+        'RIPEMD160'
+      ],
+      templateOptions = [ 'Default', 'Self-signed' ];
 
 
   function sortByName( a, b ) {
@@ -78,32 +93,42 @@ $( function() {
   
   function Certificate ( options ) {
     this.defaults = {
-      name: 'crt1',
-      desc: '',
-      days: 365,
-      keyname: '',
-      keypass: '',
-      subject: '',
-      csrname: '',
-      caname: '',
-      capass: '',
-      serial: '01'
+      name:     'crt1',
+      desc:     '',
+      days:     30,
+      serial:   1,
+      /* common certificate options */
+      keyname:  '',
+      keypass:  '',
+      subject:  '/CN=plcrtd',
+      digest:   'SHA1',
+      /* self-signed certificate options */
+      csrname:  '',
+      cacrt:    '',
+      cakey:    '',
+      cakeypw:  '',
+      template: 'Default'
     };
     options = $.extend( { }, this.defaults, options );
 
     this.Name = ko.observable( options.name );
     this.Description = ko.observable( options.desc );
     this.Days = ko.observable( options.days );
+    this.Serial = ko.observable( options.serial );
 
+    /* common */
     this.KeyName = ko.observable( options.keyname );
     this.KeyPassword = ko.observable( options.keypass );
     this.Subject = ko.observable( options.subject );
+    this.Digest = ko.observable( options.digest );
 
-    this.CSRName = ko.observable( options.csrname );
-    this.CAName = ko.observable( options.caname );
-    this.CAPassword = ko.observable( options.capass );
-    this.Serial = ko.observable( options.serial );
-    
+    /* self-signed */
+    this.CsrName = ko.observable( options.csrname );
+    this.CACrtName = ko.observable( options.cacrt );
+    this.CAKeyName = ko.observable( options.cakey );
+    this.CAKeyPassword = ko.observable( options.cakeypw );
+
+    this.Template = ko.observable( options.template );
   }
 
 
@@ -119,7 +144,7 @@ $( function() {
 
   function Page ( args ) {
     this.defaults = { };
-    this.args = $.extend( {}, this.defaults, args );
+    this.args = $.extend( { }, this.defaults, args );
 
     this.onCreate = ko.observable( false );
     this.onWipe = ko.observable( false );
@@ -239,7 +264,7 @@ $( function() {
           desc: db.Description()
         },
         function ( response ) {
-          if ( response.name ) {
+          if ( 'name' in response ) {
             iam.List.push( db );
             iam.List.sort( sortByName );
             iam.CreateToggle();
@@ -259,7 +284,7 @@ $( function() {
           name: name
         },
         function ( response ) {
-          if ( response.name ) {
+          if ( 'name' in response ) {
             if ( iam.Settings().Name() === name ) {
               iam.Settings( null );
             }
@@ -298,7 +323,7 @@ $( function() {
         name: name
       },
       function ( response ) {
-        if ( response.name ) {
+        if ( 'name' in response ) {
           var dbs = iam.List(),
               len = dbs.length;
 
@@ -334,9 +359,7 @@ $( function() {
         desc: desc
       },
       function ( response ) {
-        if ( response.name ) {
-          /* nop */
-        } else {
+        if ( 'err' in response ) {
           riseError( response.err );
         }
       } );
@@ -351,7 +374,7 @@ $( function() {
       iam.List.removeAll();
 
       postJSON( { action: 'listdbs' }, function ( response ) {
-        if ( response.dbs ) {
+        if ( 'dbs' in response ) {
           var list = response.dbs,
               total = list.length;
 
@@ -375,7 +398,7 @@ $( function() {
       clearError();
 
       postJSON( { action: 'currentdb' }, function ( response ) {
-        if ( response.name ) {
+        if ( 'name' in response ) {
           var dbs = iam.List(),
               len = dbs.length,
               name = response.name;
@@ -428,7 +451,7 @@ $( function() {
           passwd: passwd
         },
         function ( response ) {
-          if ( response.name ) {
+          if ( 'name' in response ) {
             iam.List.push( key );
             iam.List.sort( sortByName );
             iam.CreateToggle();
@@ -448,7 +471,7 @@ $( function() {
           name: name
         },
         function ( response ) {
-          if ( response.name ) {
+          if ( 'name' in response ) {
             iam.List.remove( entry );
           } else {
             riseError( response.err );
@@ -478,7 +501,7 @@ $( function() {
       iam.List.removeAll();
 
       postJSON( { action: 'listkeys' }, function ( response ) {
-        if ( response.keys ) {
+        if ( 'keys' in response ) {
           var ary = response.keys,
               len = ary.length;
 
@@ -564,11 +587,11 @@ $( function() {
     } );
 
 
-    function GetKeys () {
+    function GetKeys ( ) {
       var iam = this;
 
       clearError();
-      iam.KeysList.removeAll();
+      iam.Keys.removeAll();
 
       postJSON( { action: 'listkeys' }, function ( response ) {
         if ( 'keys' in response ) {
@@ -576,10 +599,10 @@ $( function() {
               len = ary.length;
 
           for ( var i = 0; i < len; i++ ) {
-            iam.KeysList.push( ary[i].name );
+            iam.Keys.push( ary[i].name );
           }
 
-          iam.KeysList.sort();
+          iam.Keys.sort();
         } else {
           riseError( response.err );
         }
@@ -611,7 +634,7 @@ $( function() {
     }
 
     $.extend( self.csr, {
-      KeysList : ko.observableArray( [] ),
+      Keys : ko.observableArray( [ ] ),
       GetKeys  : GetKeys.bind( self.csr ),
       ListCSRs : ListCertificateRequests.bind( self.csr )
     } );
@@ -620,19 +643,42 @@ $( function() {
     /*  Behaviours: Certificates  */
     
     self.crt = new Page( {
-      CreateItem : function () { return new Certificate(); },
-      Create : function ( ) {
+      CreateItem: function () { return new Certificate(); },
+      Create: function ( ) {
         var iam = this,
             item = iam.Item(),
-            name = item.Name();
+            template = item.Template(),
+            payload,
+            defaults = {
+              action:   'gencrt',
+              name:     item.Name(),
+              desc:     item.Description(),
+              days:     item.Days(),
+              serial:   item.Serial(),
+              template: template
+            };
+
+        if ( template == 'Default' ) {
+          payload = {
+            keyname:  item.KeyName(),
+            keypass:  item.KeyPassword(),
+            subject:  item.Subject(),
+            digest:   item.Digest()
+          };
+        } else {
+          payload = {
+            cacrt:    item.CACrtName(),
+            cakey:    item.CAKeyName(),
+            cakeypw:  item.CAKeyPassword(),
+            csrname:  item.CsrName()
+          };
+        }
+
+        payload = $.extend( { }, defaults, payload );
 
         clearError();
 
-        postJSON( { 
-          action: 'gencrt',
-          name: name
-        },
-        function ( response ) {
+        postJSON( payload, function ( response ) {
           if ( 'name' in response ) {
             iam.List.push( item );
             iam.List.sort( sortByName );
@@ -642,7 +688,7 @@ $( function() {
           }
         } );
       },
-      Remove : function ( entry ) {
+      Remove: function ( entry ) {
         var iam = this,
             name = entry.Name();
 
@@ -660,7 +706,7 @@ $( function() {
           }
         } );
       },
-      Wipe : function () {
+      Wipe: function () {
         var iam = this;
 
         clearError();
@@ -698,8 +744,49 @@ $( function() {
       } );
     }
 
+    function GetCSRs ( ) {
+      var iam = this;
+
+      clearError();
+      iam.CSRs.removeAll();
+
+      postJSON( { action: 'listcsrs' }, function ( response ) {
+        if ( 'csrs' in response ) {
+          var ary = response.csrs,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.CSRs.push( ary[i].name );
+          }
+
+          iam.CSRs.sort();
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
+    }
+
+    function ComputeCrtNames ( ) {
+      var result = new Array(),
+          crts = this.List(),
+          length = crts.length;
+
+      for ( var i = 0; i < length; i++ ) {
+        result.push( crts[i].Name() );
+      }
+
+      return result;
+    }
+
     $.extend( self.crt, {
-      ListCRTs : ListCertificates.bind( self.crt )
+      ListCRTs:   ListCertificates.bind( self.crt ),
+      Keys:       ko.observableArray( [ ] ),
+      GetKeys:    GetKeys.bind( self.crt ),
+      CSRs:       ko.observableArray( [ ] ),
+      GetCSRs:    GetCSRs.bind( self.crt ),
+      CRTs:       ko.computed( ComputeCrtNames.bind( self.crt ) )
     } );
 
 
@@ -886,6 +973,8 @@ $( function() {
           self.crt.onTable( true );
           self.crt.onCreate( false );
           self.crt.onWipe( false );
+          self.crt.GetKeys();
+          self.crt.GetCSRs();
           self.crt.ListCRTs();
           break;
         case 'revoked':
