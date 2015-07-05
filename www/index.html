@@ -72,19 +72,18 @@
     <button class="btn" data-bind="click: cfg.WipeToggle">Wipe DBs</button>
     <div class="embedView" data-bind="visible: cfg.onCreate()">
       <form id="dbForm" data-bind="submit: cfg.Create">
-      <table id="hTable">
-        <colgroup><col width="20%"></col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: cfg.Item">
           <tr>
-            <th>Name</th>
+            <th class="w20">Name</th>
             <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
-            <th>Description</th>
+            <th class="w20">Description</th>
             <td class="editable"><input data-bind="value: Description" /></td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
               <button class="btn" data-bind="click: $root.cfg.CreateToggle">Cancel</button>
@@ -102,22 +101,21 @@
       <button class="btn" data-bind="click: cfg.WipeToggle">Cancel</button>
     </div>
     <div class="embedView" data-bind="visible: cfg.onTable()">
-      <table id="Table">
-        <colgroup><col width="15%"><col width="80%"><col><col></colgroup>
+      <table class="vTable">
         <thead data-bind="visible: cfg.List().length > 0">
           <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th colspan="2">&nbsp;</th>
+            <th class="w20">Name</th>
+            <th class="w70">Description</th>
+            <th class="w10" colspan="2">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: cfg.List">
           <tr>
-            <td data-bind="text: Name"></td>
-            <td data-bind="text: Description"></td>
-            <td><a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
+            <td class="w20" data-bind="text: Name"></td>
+            <td class="w70" data-bind="text: Description"></td>
+            <td class="w05"><a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
                    title="Activate">Activate</a></td>
-            <td><a href="#" data-bind="click: $root.cfg.Remove" title="Remove">Remove</a></td>
+            <td class="w05"><a href="#" data-bind="click: $root.cfg.Remove" title="Remove">Remove</a></td>
           </tr>
         </tbody>
       </table>
@@ -125,19 +123,18 @@
     <h2 data-bind="visible: cfg.Settings">Database settings</h2>
     <div class="embedView" data-bind="visible: cfg.Settings">
       <form id="setupForm" data-bind="submit: cfg.Setup">
-      <table id="hTable">
-        <colgroup><col width="20%"></col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: cfg.Settings">
           <tr>
-            <th>Database</th>
+            <th class="w20">Database</th>
             <td class="editable" data-bind="text: Name"></td>
           </tr>
           <tr>
-            <th>Description</th>
+            <th class="w20">Description</th>
             <td class="editable"><input data-bind="value: Description" /></td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Update</button>
             </td>
@@ -155,37 +152,36 @@
     <button class="btn" data-bind="click: pk.WipeToggle">Wipe PKs</button>
     <div class="embedView" data-bind="visible: pk.onCreate()">
       <form id="pkForm" data-bind="submit: pk.Create">
-      <table id="hTable">
-        <colgroup><col width="20%"><col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: pk.Item">
           <tr>
-            <th>Name</th>
+            <th class="w20">Name</th>
             <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
-            <th>Type</th>
+            <th class="w20">Type</th>
             <td class="editable">
               <select data-bind="options: pkOptions, value: Type"></select>
             </td>
           </tr>
           <tr>
-            <th>Size</th>
+            <th class="w20">Size</th>
             <td class="editable">
               <select data-bind="options: sizeOptions, value: Size"></select>
             </td>
           </tr>
           <tr>
-            <th>Cipher</th>
+            <th class="w20">Cipher</th>
             <td class="editable">
               <select data-bind="options: cipherOptions, value: Cipher"></select>
             </td>
           </tr>
           <tr>
-            <th>Password</th>
+            <th class="w20">Password</th>
             <td class="editable"><input data-bind="value: Password" /></td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
               <button class="btn" data-bind="click: $root.pk.CreateToggle">Cancel</button>
@@ -203,19 +199,19 @@
       <button class="btn" data-bind="click: pk.WipeToggle">Cancel</button>
     </div>
     <div class="embedView" data-bind="visible: pk.onTable()">
-      <table id="Table">
-        <colgroup><col width="70%"><col><col><col></colgroup>
+      <table class="vTable">
         <thead data-bind="visible: pk.List().length > 0">
           <tr>
-            <th>Name</th>
-            <th>Encrypted</td>
+            <th class="w70">Name</th>
+            <th>Encrypted</th>
             <th>Type</th>
             <th>Size</th>
+            <th>&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: pk.List">
           <tr>
-            <td data-bind="text: Name"></td>
+            <td class="w70" data-bind="text: Name"></td>
             <td data-bind="text: Encrypted"></td>
             <td data-bind="text: Type"></td>
             <td data-bind="text: Size"></td>
@@ -233,35 +229,34 @@
     <button class="btn" data-bind="click: csr.WipeToggle">Wipe CSRs</button>
     <div class="embedView" data-bind="visible: csr.onCreate()">
       <form id="csrForm" data-bind="submit: csr.Create">
-      <table id="hTable">
-        <colgroup><col width="20%"><col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: csr.Item">
           <tr>
-            <th>Name</th>
+            <th class="w20">Name</th>
             <td class="editable"><input data-bind="value: Name" /></td>
           </tr>
           <tr>
-            <th>Key</th>
+            <th class="w20">Key</th>
             <td class="editable">
               <select data-bind="options: $root.csr.Keys, value: KeyName"></select>
             </td>
           </tr>
           <tr>
-            <th>Password</th>
+            <th class="w20">Password</th>
             <td class="editable"><input data-bind="value: KeyPassword" /></td>
           </tr>
           <tr>
-            <th>Subject</th>
+            <th class="w20">Subject</th>
             <td class="editable"><input data-bind="value: Subject" /></td>
           </tr>
           <tr>
-            <th>Digest</th>
+            <th class="w20">Digest</th>
             <td class="editable">
               <select data-bind="options: digestOptions, value: Digest"></select>
             </td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
               <button class="btn" data-bind="click: $root.csr.CreateToggle">Cancel</button>
@@ -279,29 +274,25 @@
       <button class="btn" data-bind="click: csr.WipeToggle">Cancel</button>
     </div>
     <div class="embedView" data-bind="visible: csr.onTable()">
-      <table id="Table">
-        <colgroup>
-          <col width="30%"><!-- name //-->
-          <col width="40%"><!-- subject //-->
-          <col width="15%"><!-- keyname //-->
-          <col width="10%"><!-- digest //-->
-          <col width="5%"><!-- actions //-->
-        </colgroup>
+      <table class="vTable">
         <thead data-bind="visible: csr.List().length > 0">
           <tr>
-            <th>Name</th>
-            <th>Subject</th>
-            <th>Key</th>
-            <th>Digest</th>
+            <th class="w30">Name</th>
+            <th class="w40">Subject</th>
+            <th class="w15">Key</th>
+            <th class="w10">Digest</th>
+            <th class="w05">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: csr.List">
           <tr>
-            <td data-bind="text: Name"></td>
-            <td data-bind="text: Subject"></td>
-            <td data-bind="text: KeyName"></td>
-            <td data-bind="text: Digest"></td>
-            <td><a href="#" data-bind="click: $root.csr.Remove" title="Remove">Remove</a></td>
+            <td class="w30" data-bind="text: Name"></td>
+            <td class="w40" data-bind="text: Subject"></td>
+            <td class="w15" data-bind="text: KeyName"></td>
+            <td class="w10" data-bind="text: Digest"></td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.csr.Remove" title="Remove">Remove</a>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -315,77 +306,76 @@
     <button class="btn" data-bind="click: crt.WipeToggle">Wipe CRTs</button>
     <div class="embedView" data-bind="visible: crt.onCreate()">
       <form id="crtForm" data-bind="submit: crt.Create">
-      <table id="hTable">
-        <colgroup><col width="20%"><col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: crt.Item">
           <tr>
-            <th>Name</th>
+            <th class="w20">Name</th>
             <td class="editable"><input data-bind="value: Name" /></td>
           </tr>
           <tr>
-            <th>Description</th>
+            <th class="w20">Description</th>
             <td class="editable"><input data-bind="value: Description" /></td>
           </tr>
           <tr>
-            <th>Days</th>
+            <th class="w20">Days</th>
             <td class="editable"><input data-bind="value: Days" /></td>
           </tr>
           <tr>
-            <th>Serial</th>
+            <th class="w20">Serial</th>
             <td class="editable"><input data-bind="value: Serial" /></td>
           </tr>
           <tr>
-            <th>Template</th>
+            <th class="w20">Template</th>
             <td class="editable">
               <select data-bind="options: templateOptions, value: Template"></select>
             </td>
           </tr>
           <!-- self-signed options//-->
           <tr data-bind="visible: Template() == 'Self-signed'">
-            <th>Certificate Request</th>
+            <th class="w20">Certificate Request</th>
             <td class="editable">
               <select data-bind="options: $root.crt.CSRs, value: CsrName"></select>
             </td>
           </tr>
           <tr data-bind="visible: Template() == 'Self-signed'">
-            <th>CA Certificate</th>
+            <th class="w20">CA Certificate</th>
             <td class="editable">
               <select data-bind="options: $root.crt.CRTs, value: CACrtName"></select>
             </td>
           </tr>
           <tr data-bind="visible: Template() == 'Self-signed'">
-            <th>CA Key</th>
+            <th class="w20">CA Key</th>
             <td class="editable">
               <select data-bind="options: $root.crt.Keys, value: CAKeyName"></select>
             </td>
           </tr>
           <tr data-bind="visible: Template() == 'Self-signed'">
-            <th>CA Password</th>
+            <th class="w20">CA Password</th>
             <td class="editable"><input data-bind="value: CAKeyPassword" /></td>
           </tr>
           <!-- common certificate //-->
           <tr data-bind="visible: Template() == 'Default'">
-            <th>Key</th>
+            <th class="w20">Key</th>
             <td class="editable">
               <select data-bind="options: $root.crt.Keys, value: KeyName"></select>
             </td>
           </tr>
           <tr data-bind="visible: Template() == 'Default'">
-            <th>Password</th>
+            <th class="w20">Password</th>
             <td class="editable"><input data-bind="value: KeyPassword" /></td>
           </tr>
           <tr data-bind="visible: Template() == 'Default'">
-            <th>Subject</th>
+            <th class="w20">Subject</th>
             <td class="editable"><input data-bind="value: Subject" /></td>
           </tr>
           <tr data-bind="visible: Template() == 'Default'">
-            <th>Digest</th>
+            <th class="w20">Digest</th>
             <td class="editable">
               <select data-bind="options: digestOptions, value: Digest"></select>
             </td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
               <button class="btn" data-bind="click: $root.crt.CreateToggle">Cancel</button>
@@ -403,32 +393,27 @@
       <button class="btn" data-bind="click: crt.WipeToggle">Cancel</button>
     </div>
     <div class="embedView" data-bind="visible: crt.onTable()">
-      <table id="Table">
-        <colgroup>
-          <col width="30%"><!-- name //-->
-          <col width="30%"><!-- description //-->
-          <col width="5%"><!-- days //-->
-          <col width="5%"><!-- serial //-->
-          <col width="25%"><!-- template //-->
-          <col width="5%"><!-- actions //-->
-        </colgroup>
+      <table class="vTable">
         <thead data-bind="visible: crt.List().length > 0">
           <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Days</th>
-            <th>Serial</th>
-            <th>Template</th>
+            <th class="w30">Name</th>
+            <th class="w30">Description</th>
+            <th class="w05">Days</th>
+            <th class="w05">Serial</th>
+            <th class="w25">Template</th>
+            <th class="w05">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crt.List">
           <tr>
-            <td data-bind="text: Name"></td>
-            <td data-bind="text: Description"></td>
-            <td data-bind="text: Days"></td>
-            <td data-bind="text: Serial"></td>
-            <td data-bind="text: Template"></td>
-            <td><a href="#" data-bind="click: $root.crt.Remove" title="Remove">Remove</a></td>
+            <td class="w30" data-bind="text: Name"></td>
+            <td class="w30" data-bind="text: Description"></td>
+            <td class="w05" data-bind="text: Days"></td>
+            <td class="w05" data-bind="text: Serial"></td>
+            <td class="w25" data-bind="text: Template"></td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.crt.Remove" title="Remove">Remove</a>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -442,15 +427,14 @@
     <button class="btn" data-bind="click: crl.WipeToggle">Wipe CRLs</button>
     <div class="embedView" data-bind="visible: crl.onCreate()">
       <form id="crlForm" data-bind="submit: crl.Create">
-      <table id="hTable">
-        <colgroup><col width="20%"><col></colgroup>
+      <table class="hTable">
         <tbody data-bind="with: crl.Item">
           <tr>
-            <th>Name</th>
+            <th class="w20">Name</th>
             <td class="editable"><input data-bind="value: Name"/></td>
           </tr>
           <tr>
-            <td class="button">&nbsp;</td>
+            <td class="button w20">&nbsp;</td>
             <td class="button">
               <button class="btn" type="submit">Submit</button>
               <button class="btn" data-bind="click: $root.crl.CreateToggle">Cancel</button>
@@ -468,17 +452,19 @@
       <button class="btn" data-bind="click: crl.WipeToggle">Cancel</button>
     </div>
     <div class="embedView" data-bind="visible: crl.onTable()">
-      <table id="Table">
-        <colgroup><col width="70%"></colgroup>
+      <table class="vTable">
         <thead data-bind="visible: crl.List().length > 0">
           <tr>
-            <th>Name</th>
+            <th class="w70">Name</th>
+            <th>&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crl.List">
           <tr>
-            <td data-bind="text: Name"></td>
-            <td><a href="#" data-bind="click: $root.crl.Remove" title="Remove">Remove</a></td>
+            <td class="w70" data-bind="text: Name"></td>
+            <td>
+              <a href="#" data-bind="click: $root.crl.Remove" title="Remove">Remove</a>
+            </td>
           </tr>
         </tbody>
       </table>
