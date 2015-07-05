@@ -1,0 +1,8 @@
+#!/bin/sh
+
+mkdir demoCA
+touch demoCA/index.txt
+echo 01 > demoCA/crlnumber
+openssl ca -revoke client.crt -keyfile ca.key -cert ca.crt
+openssl ca -gencrl -keyfile ca.key -cert ca.crt -out demoCA/crl.pem
+openssl crl -inform PEM -text -in demoCA/crl.pem

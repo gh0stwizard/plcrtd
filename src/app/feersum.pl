@@ -300,7 +300,6 @@ sub do_post($$$$) {
 
     my %settings = 
       (
-        name      => $name,
         days      => $days,
         desc      => $desc,
         serial    => $serial,
@@ -344,8 +343,15 @@ sub do_post($$$$) {
     # generates new certificate revocation list 
     # and stores into user database
     my $name = $params->{ 'name' } || '';
+    my %options = 
+      (
+        cacrt   => $params->{ 'cacrt' } || '',
+        cakey   => $params->{ 'cakey' } || '',
+        cakeypw => $params->{ 'cakeypw' } || '',
+      )
+    ;
 
-    &gencrl( $R, $name, );
+    &gencrl( $R, $name, %options );
 
   } elsif ( $action eq 'listcrls' ) {
     # return a list of all certificate revocation lists
@@ -1223,7 +1229,7 @@ sub gencrt($$%) {
   my ( $R, $name, %params ) = @_;
 
 
-  if ( not check_file_name( $params{ 'name' } ) ) {
+  if ( not check_file_name( $name ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -1417,7 +1423,7 @@ sub gencrt($$%) {
 
     my %data =
       (
-        name      => $params{ 'name' },
+        name      => $name,
         desc      => $params{ 'desc' },
         days      => $params{ 'days' },
         serial    => $params{ 'serial' },
@@ -1530,8 +1536,22 @@ sub remove_all_crts($) {
 }
 
 
-sub gencrl($$) {
-  my ( $R, $name ) = @_;
+=item B<gencrl>( $feersum, $name, %options )
+
+Generates a new certificate revocation list with a name $name.
+
+A list of valid optiions:
+
+  cacrt   => $ca_crt,     # CA certificate name
+  cakey   => $ca_key,     # CA certificate key name
+  cakeypw => $ca_key_pw,  # CA certificate key password  
+
+
+=cut
+
+
+sub gencrl($$%) {
+  my ( $R, $name, %options ) = @_;
 
 
   &send_error( $R, &NOT_IMPLEMENTED() );
