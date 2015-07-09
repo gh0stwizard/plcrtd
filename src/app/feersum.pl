@@ -248,17 +248,17 @@ sub do_post($$$$) {
     # removes a private key from an user database
     my $name = $params->{ 'name' } || '';
 
-    &remove_pkey( $R, $name );
+    &remove_key( $R, $name );
 
   } elsif ( $action eq 'listkeys' ) {
     # return a list of all private keys
 
-    &list_pkeys( $R );
+    &list_keys( $R );
 
   } elsif ( $action eq 'removeallkeys' ) {
     # removes all entries for private keys from an user database
 
-    &remove_all_pkeys( $R );
+    &remove_all_keys( $R );
 
   } elsif ( $action eq 'gencsr' ) {
     # generates new certificate requests and stores into user database
@@ -295,14 +295,12 @@ sub do_post($$$$) {
     my $name = $params->{ 'name' } || '';
     my $days = int( $params->{ 'days' } || 30 );
     my $desc = $params->{ 'desc' } || '';
-    my $serial = int( $params->{ 'serial' } || 0 );
     my $template = $params->{ 'template' } || 'Default';
 
     my %settings = 
       (
         days      => $days,
         desc      => $desc,
-        serial    => $serial,
         template  => $template,
       )
     ;
@@ -377,6 +375,11 @@ sub do_post($$$$) {
     # from an user database
 
     &remove_all_crls( $R );
+
+  } elsif ( $action eq 'getserial' ) {
+    # returns serial for certificate generation
+
+    &get_serial( $R );
 
   } else {
     # wrong input data
@@ -481,7 +484,7 @@ sub genkey($$$$;$$) {
   my ( $R, $name, $type, $bits, $cipher, $password ) = @_;
 
 
-  if ( not check_file_name( $name ) ) {
+  if ( not &check_file_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -658,7 +661,7 @@ sub create_db($$$) {
   my ( $R, $name, $desc ) = @_;
 
 
-  if ( not check_db_name( $name ) ) {
+  if ( not &check_db_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -668,8 +671,15 @@ sub create_db($$$) {
   if ( not $dbs->fetch( $name ) ) {
     my %data = ( name => $name, desc => $desc );
     $dbs->store( $name, encode_json( \%data ) )
+      or return &send_error( $R, &EINT_ERROR() );
+
+AE::log trace => "store serial into %s", $name;
+
+    # set initial serial number for certificates
+    my $db = Local::DB::UnQLite->new( $name );
+    $db->store( 'serial', 1 )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &EINT_ERROR(), 'store serial' );
   } else {
     &send_error( $R, &DUPLICATE_ENTRY() );
     return;
@@ -691,7 +701,7 @@ sub remove_db($$) {
   my ( $R, $name ) = @_;
 
 
-  if ( not check_db_name( $name ) ) {
+  if ( not &check_db_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -732,7 +742,7 @@ sub update_db($$$) {
   my ( $R, $name, $desc ) = @_;
 
 
-  if ( not check_db_name( $name ) ) {
+  if ( not &check_db_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -770,7 +780,7 @@ sub switch_db($$) {
   my ( $R, $name ) = @_;
 
 
-  if ( not check_db_name( $name ) ) {
+  if ( not &check_db_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
@@ -911,14 +921,14 @@ sub check_file_name($) {
 }
 
 
-=item B<remove_pkey>( $feersum, $name )
+=item B<remove_key>( $feersum, $name )
 
 Removes from a database a private key with specified name $name.
 
 =cut
 
 
-sub remove_pkey($$) {
+sub remove_key($$) {
   my ( $R, $name ) = @_;
 
 
@@ -941,14 +951,14 @@ sub remove_pkey($$) {
 }
 
 
-=item B<list_pkeys>( $feersum )
+=item B<list_keys>( $feersum )
 
 Sends to a client side a list of private keys.
 
 =cut
 
 
-sub list_pkeys($) {
+sub list_keys($) {
   my ( $R ) = @_;
 
 
@@ -969,14 +979,14 @@ sub list_pkeys($) {
 }
 
 
-=item B<remove_all_pkeys>( $feersum )
+=item B<remove_all_keys>( $feersum )
 
 Removes all private keys entries from a database.
 
 =cut
 
 
-sub remove_all_pkeys($) {
+sub remove_all_keys($) {
   my ( $R ) = @_;
 
 
@@ -1010,12 +1020,12 @@ sub gencsr($$%) {
   my ( $R, $name, %options ) = @_;
 
 
-  if ( not check_file_name( $name ) ) {
+  if ( not &check_file_name( $name ) ) {
     &send_error( $R, &INVALID_NAME(), 'name' );
     return;
   }
 
-  if ( not check_file_name( $options{ 'keyname' } ) ) {
+  if ( not &check_file_name( $options{ 'keyname' } ) ) {
     &send_error( $R, &INVALID_NAME(), 'keyname' );
     return;
   }
@@ -1227,7 +1237,6 @@ An example of an options %params for a self-signed certificate:
   cacrt   => $ca_crt,     # CA certificate name
   cakey   => $ca_key,     # CA certificate key name
   cakeypw => $ca_key_pw,  # CA certificate passsword, optional
-  serial  => $serial,     # optional
 
 
 =cut 
@@ -1237,12 +1246,12 @@ sub gencrt($$%) {
   my ( $R, $name, %params ) = @_;
 
 
-  if ( not check_file_name( $name ) ) {
+  if ( not &check_file_name( $name ) ) {
     &send_error( $R, &INVALID_NAME() );
     return;
   }
 
-  if ( not check_days( $params{ 'days' } ) ) {
+  if ( not &check_days( $params{ 'days' } ) ) {
     &send_error( $R, &BAD_REQUEST() );
     return;
   }
@@ -1262,17 +1271,17 @@ sub gencrt($$%) {
 
   if ( $params{ 'csrname' } ) {
     # client self-signed certificate
-    if ( not check_file_name( $params{ 'csrname' } ) ) {
+    if ( not &check_file_name( $params{ 'csrname' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
 
-    if ( not check_file_name( $params{ 'cacrt' } ) ) {
+    if ( not &check_file_name( $params{ 'cacrt' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
 
-    if ( not check_file_name( $params{ 'cakey' } ) ) {
+    if ( not &check_file_name( $params{ 'cakey' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
@@ -1307,7 +1316,7 @@ sub gencrt($$%) {
 
   } else {
     # common certificate
-    if ( not check_file_name( $params{ 'keyname' } ) ) {
+    if ( not &check_file_name( $params{ 'keyname' } ) ) {
       &send_error( $R, &INVALID_NAME() );
       return;
     }
@@ -1353,9 +1362,7 @@ sub gencrt($$%) {
   # + days
   push @command, '-days', $params{ 'days' };
 
-  # + set_serial
-  push @command, '-set_serial', $params{ 'serial' };
-
+  # open a database for neccessary data 
   my $maindb = Local::DB::UnQLite->new( '__db__' );
   my $dbname = $maindb->fetch( '_' )
     or return &send_error( $R, &MISSING_DATABASE() );
@@ -1364,6 +1371,11 @@ sub gencrt($$%) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
+
+  # + set_serial
+  my $serial = $db->fetch( 'serial' )
+    or return &send_error( $R, &EINT_ERROR(), 'missing serial' );
+  push @command, '-set_serial', $serial;
 
   # retrieving neccessary keys and certs.
   if ( $isSelfSign ) {
@@ -1403,6 +1415,7 @@ sub gencrt($$%) {
     push @fdsetup, "4<", \$keyin;
   }
 
+AE::log trace => "run> %s", join ' ', @command;
 
   my $cv = run_cmd [ @command ], @fdsetup;
 
@@ -1434,7 +1447,7 @@ sub gencrt($$%) {
         name      => $name,
         desc      => $params{ 'desc' },
         days      => $params{ 'days' },
-        serial    => $params{ 'serial' },
+        serial    => $serial,
         template  => $params{ 'template' },
         out       => $crtout,
       )
@@ -1451,6 +1464,9 @@ sub gencrt($$%) {
       $data{ 'subject' }  = $params{ 'subject' };
       $data{ 'digest' }   = $params{ 'digest' };
     }
+
+    $db->store( 'serial', ++$serial )
+      or return &send_error( $R, &EINT_ERROR(), 'store serial' );
 
     $db->store( $kv, encode_json( \%data ) )
       ? &send_response( $R, 'name', $name )
@@ -1560,17 +1576,17 @@ sub create_crl($$%) {
   my ( $R, $name, %options ) = @_;
 
 
-  if ( not check_file_name( $name ) ) {
+  if ( not &check_file_name( $name ) ) {
     &send_error( $R, &INVALID_NAME(), 'name' );
     return;
   }
 
-  if ( not check_file_name( $options{ 'cacrt' } ) ) {
+  if ( not &check_file_name( $options{ 'cacrt' } ) ) {
     &send_error( $R, &INVALID_NAME(), 'cacrt' );
     return;
   }
 
-  if ( not check_file_name( $options{ 'cakey' } ) ) {
+  if ( not &check_file_name( $options{ 'cakey' } ) ) {
     &send_error( $R, &INVALID_NAME(), 'cakey' );
     return;
   }
@@ -1697,6 +1713,36 @@ sub remove_all_crls($) {
   my $num = $db->delete_like( '^crl_' );
 
   &send_response( $R, 'deleted', $num );
+}
+
+
+=item B<get_serial>( $feersum )
+
+Returns current next serial number to generate a certificate.
+If no databases were activated returns an error.
+
+=cut
+
+
+sub get_serial($) {
+  my ( $R ) = @_;
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+AE::log trace => "getting serial from %s", $dbname;
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $serial = $db->fetch( 'serial' );
+
+  defined $serial
+    ? &send_response( $R, 'serial', $serial )
+    : &send_error( $R, &EINT_ERROR(), 'invalid serial' );
 }
 
 

@@ -98,7 +98,7 @@ $( function() {
       name:     'crt1',
       desc:     '',
       days:     30,
-      serial:   1,
+      serial:   -1,
       /* common certificate options */
       keyname:  '',
       keypass:  '',
@@ -116,7 +116,7 @@ $( function() {
     this.Name = ko.observable( options.name );
     this.Description = ko.observable( options.desc );
     this.Days = ko.observable( options.days );
-    this.Serial = ko.observable( options.serial );
+    this.Serial = options.serial;
 
     /* common */
     this.KeyName = ko.observable( options.keyname );
@@ -663,7 +663,6 @@ $( function() {
               name:     item.Name(),
               desc:     item.Description(),
               days:     item.Days(),
-              serial:   item.Serial(),
               template: template
             };
 
@@ -689,6 +688,9 @@ $( function() {
 
         postJSON( payload, function ( response ) {
           if ( 'name' in response ) {
+            /* update serial */
+            item.Serial = iam.Serial();
+
             iam.List.push( item );
             iam.List.sort( sortByName );
             iam.CreateToggle();
@@ -789,13 +791,32 @@ $( function() {
       return result;
     }
 
+    function GetSerial ( ) {
+      var iam = this;
+
+      clearError();
+      iam.Serial( null );
+
+      postJSON( { action: 'getserial' }, function ( response ) {
+        if ( 'serial' in response ) {
+          iam.Serial( response.serial );
+        } else {
+          riseError( response.err, response.msg );
+        }
+      } );
+
+      return false;
+    }
+
     $.extend( self.crt, {
       ListCRTs:   ListCertificates.bind( self.crt ),
       Keys:       ko.observableArray( [ ] ),
       GetKeys:    GetKeys.bind( self.crt ),
       CSRs:       ko.observableArray( [ ] ),
       GetCSRs:    GetCSRs.bind( self.crt ),
-      CRTs:       ko.computed( ComputeCrtNames.bind( self.crt ) )
+      CRTs:       ko.computed( ComputeCrtNames.bind( self.crt ) ),
+      Serial:     ko.observable(),
+      GetSerial:  GetSerial.bind( self.crt )
     } );
 
 
@@ -953,7 +974,7 @@ $( function() {
     function riseError ( ) {
       self.errorMessage( errors[ arguments[0] ] );
 
-      if ( arguments.length > 1 ) {
+      if ( arguments.length > 1  && arguments[1] ) {
         self.errorDescription( arguments[1] );
       }
 
@@ -1035,6 +1056,7 @@ $( function() {
           self.crt.onWipe( false );
           self.crt.GetKeys();
           self.crt.GetCSRs();
+          self.crt.GetSerial();
           self.crt.ListCRTs();
           break;
         case 'revoked':
