@@ -673,8 +673,6 @@ sub create_db($$$) {
     $dbs->store( $name, encode_json( \%data ) )
       or return &send_error( $R, &EINT_ERROR() );
 
-AE::log trace => "store serial into %s", $name;
-
     # set initial serial number for certificates
     my $db = Local::DB::UnQLite->new( $name );
     $db->store( 'serial', 1 )
@@ -1415,8 +1413,6 @@ sub gencrt($$%) {
     push @fdsetup, "4<", \$keyin;
   }
 
-AE::log trace => "run> %s", join ' ', @command;
-
   my $cv = run_cmd [ @command ], @fdsetup;
 
   $cv->cb( sub {
@@ -1734,8 +1730,6 @@ sub get_serial($) {
 
   $maindb->fetch( $dbname )
     or return &send_error( $R, &MISSING_DATABASE() );
-
-AE::log trace => "getting serial from %s", $dbname;
 
   my $db = Local::DB::UnQLite->new( $dbname );
   my $serial = $db->fetch( 'serial' );
