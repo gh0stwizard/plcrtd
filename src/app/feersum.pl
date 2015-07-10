@@ -1522,8 +1522,19 @@ sub remove_crt($$) {
   my $db = Local::DB::UnQLite->new( $dbname );
   my $kv = 'crt_' . $name;
 
-  $db->fetch( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND() );
+  my $entry = $db->fetch_json( $kv )
+    or return &send_error( $R, &ENTRY_NOTFOUND(), 'fetch kv' );
+  my $this_serial = $entry->{ 'serial' }
+    or return &send_error( $R, &EINT_ERROR(), 'invalid serial' );
+
+  # descrease serial number if removing last inserted entry
+  my $serial = $db->fetch( 'serial' )
+    or return &send_error( $R, &EINT_ERROR(), 'fetch serial' );
+
+  if ( $serial - $this_serial == 1 ) {
+    $db->store( 'serial', $this_serial )
+      or return &send_error( $R, &EINT_ERROR(), 'store serial' );
+  }
 
   $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
@@ -1552,7 +1563,10 @@ sub remove_all_crts($) {
   my $db = Local::DB::UnQLite->new( $dbname );
   my $num = $db->delete_like( '^crt_' );
 
-  &send_response( $R, 'deleted', $num );
+  # reset serial
+  $db->store( 'serial', 1 )
+    ? &send_response( $R, 'deleted', $num )
+    : &send_error( $R, &EINT_ERROR(), 'store serial' );
 }
 
 

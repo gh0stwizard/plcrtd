@@ -690,6 +690,7 @@ $( function() {
           if ( 'name' in response ) {
             /* update serial */
             item.Serial = iam.Serial();
+            iam.GetSerial();
 
             iam.List.push( item );
             iam.List.sort( sortByName );
@@ -711,6 +712,7 @@ $( function() {
         },
         function ( response ) {
           if ( 'name' in response ) {
+            iam.GetSerial();
             iam.List.remove( entry );
           } else {
             riseError( response.err );
@@ -724,6 +726,7 @@ $( function() {
 
         postJSON( { action: 'removeallcrts' }, function ( response ) {
           if ( 'deleted' in response ) {
+            iam.GetSerial();
             iam.List.removeAll();
             iam.WipeToggle();
           } else {

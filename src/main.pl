@@ -16,7 +16,7 @@ use File::Spec::Functions ();
 use File::Path ();
 
 
-$PROGRAM_NAME = "plcrtd"; $VERSION = '0.05';
+$PROGRAM_NAME = "plcrtd"; $VERSION = '0.06';
 
 
 my $retval = GetOptions
