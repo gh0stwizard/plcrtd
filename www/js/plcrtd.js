@@ -81,7 +81,7 @@ $( function() {
       keyname:  '',
       keypass:  '',
       subject:  '/CN=plcrtd',
-      digest:   'SHA1'
+      digest:   'SHA256'
     };
     options = $.extend( { }, this.defaults, options );
 
@@ -103,7 +103,7 @@ $( function() {
       keyname:  '',
       keypass:  '',
       subject:  '/CN=plcrtd',
-      digest:   'SHA1',
+      digest:   'SHA256',
       /* self-signed certificate options */
       csrname:  '',
       cacrt:    '',
@@ -937,18 +937,31 @@ $( function() {
     }
 
     function ActivateCRL ( entry ) {
-      var iam = this;
+      this.onActivate( true );
+      this.onTable( false );
+    }
 
+    function ActivateCRLToggle ( ) {
+      this.onActivate( false );
+      this.onTable( true );
+    }
+
+    function AddCRTtoCRL ( ) {
+      return false;
     }
 
     $.extend( self.crl, {
-      ListCRLs:   ListCRLs.bind( self.crl ),
-      CRTs:       ko.observableArray( [ ]),
-      GetCRTs:    GetCRTs.bind( self.crl ),
-      Keys:       ko.observableArray( [ ] ),
-      GetKeys:    GetKeys.bind( self.crl ),
-      Generate:   GenerateCRL.bind( self.crl ),
-      Activate:   ActivateCRL.bind( self.crl )
+      ListCRLs:       ListCRLs.bind( self.crl ),
+      CRTs:           ko.observableArray( [ ]),
+      GetCRTs:        GetCRTs.bind( self.crl ),
+      Keys:           ko.observableArray( [ ] ),
+      GetKeys:        GetKeys.bind( self.crl ),
+      Generate:       GenerateCRL.bind( self.crl ),
+      Activate:       ActivateCRL.bind( self.crl ),
+      onActivate:     ko.observable(),
+      ActivateToggle: ActivateCRLToggle.bind( self.crl ),
+      AddToList:      AddCRTtoCRL.bind( self.crl ),
+      CRL:            ko.observableArray( [ ] )
     } );
 
 

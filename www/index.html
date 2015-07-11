@@ -503,6 +503,21 @@
         </tbody>
       </table>
     </div>
+    <div class="embedView" data-bind="visible: crl.onActivate()">
+      <form id="crlForm" data-bind="submit: crl.AddToList">
+      <table class="hTable">
+        <tbody data-bind="with: crl.CRL">
+          <tr>
+            <td class="button w20">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn"
+                data-bind="click: $root.crl.ActivateToggle">Cancel</button>
+            </td>
+          </tr>          
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="footer"></div>

@@ -101,17 +101,9 @@ sub app {
   my $method = $env->{ 'REQUEST_METHOD' };
 
   if ( $method eq 'POST' ) {
-    # POST methods
-    my $type = $env->{ 'CONTENT_TYPE' };
-    my $len = $env->{ 'CONTENT_LENGTH' };
-    my $req = delete $env->{ 'psgi.input' };
-    
-    AE::log trace => "POST request: type = %s, length = %d",
-      $type,
-      $len,
-    ;
-    
-    &do_post( $R, $req, $len, $type );
+
+    &do_post( $R, 
+      @$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) } );
 
   } elsif ( $method eq 'GET' ) {
     # plcrtd does not using GET method
@@ -158,20 +150,26 @@ sub get_params($$$) {
   $r->close();
 
   # FIXME
+  # either disable an option $body->cleanup( 1 );
+  # or read files later, but doing cleanup itself
   my $result = $body->param();
   my $files = $body->upload();
   
-#  use Data::Dumper;
-#  AE::log trace => Dumper $files;
-  
   for my $param ( keys %$files ) {
-    my $size = $files->{ $param }{ 'size' };
-    $size > 2048 and next;
-    exists $result->{ $param } and next;
+    if ( exists $result->{ $param } ) {
+      AE::log alert => "duplicate parameter %s", $param;
+      next;
+    }
+
     my $file = $files->{ $param }{ 'tempname' };
-    open( my $fh, "<", $file ) or next;
-    $result->{ $param } = do { local $/; <$fh> };
-    close( $fh );
+#    my $size = $files->{ $param }{ 'size' };
+
+    if ( open( my $fh, "<", $file ) ) {
+      $result->{ $param } = do { local $/; <$fh> };
+      close( $fh );
+    } else {
+      AE::log error => "open %s: %s", $file, $!;
+    }
   }
 
   return $result;
@@ -191,7 +189,11 @@ sub do_post($$$$) {
     or &send_error( $R, &BAD_REQUEST() ), return;
 
 
-  my $action = $params->{ 'action' } || '';
+  my $action = delete $params->{ 'action' } || '';
+
+  AE::log trace => $action;
+  AE::log trace => "  %s = %s", $_, $params->{ $_ }
+    for sort keys %{ $params };
 
   if ( $action eq 'listdbs' ) {
     # returns all database entries
@@ -1245,12 +1247,12 @@ sub gencrt($$%) {
 
 
   if ( not &check_file_name( $name ) ) {
-    &send_error( $R, &INVALID_NAME() );
+    &send_error( $R, &INVALID_NAME(), 'certificate name' );
     return;
   }
 
   if ( not &check_days( $params{ 'days' } ) ) {
-    &send_error( $R, &BAD_REQUEST() );
+    &send_error( $R, &BAD_REQUEST(), 'invalid value for days' );
     return;
   }
 
@@ -1268,19 +1270,12 @@ sub gencrt($$%) {
   my $isSelfSign = 0;
 
   if ( $params{ 'csrname' } ) {
-    # client self-signed certificate
-    if ( not &check_file_name( $params{ 'csrname' } ) ) {
-      &send_error( $R, &INVALID_NAME() );
-      return;
-    }
+    # set the self-signed certificate flag to use it later
+    $isSelfSign = 1;
 
-    if ( not &check_file_name( $params{ 'cacrt' } ) ) {
-      &send_error( $R, &INVALID_NAME() );
-      return;
-    }
-
-    if ( not &check_file_name( $params{ 'cakey' } ) ) {
-      &send_error( $R, &INVALID_NAME() );
+    for my $filename ( qw( csrname cacrt cakey ) ) {
+      &check_file_name( $params{ $filename } ) and next;
+      &send_error( $R, &INVALID_NAME(), "incorrect name for $filename" );
       return;
     }
 
@@ -1309,8 +1304,6 @@ sub gencrt($$%) {
     # TODO digest?
     # possible options: -md2|-md5|-sha1|-mdc2
     # default is SHA1
-
-    $isSelfSign = 1;
 
   } else {
     # common certificate
@@ -1374,6 +1367,7 @@ sub gencrt($$%) {
   my $serial = $db->fetch( 'serial' )
     or return &send_error( $R, &EINT_ERROR(), 'missing serial' );
   push @command, '-set_serial', $serial;
+
 
   # retrieving neccessary keys and certs.
   if ( $isSelfSign ) {
