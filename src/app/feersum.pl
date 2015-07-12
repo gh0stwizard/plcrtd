@@ -1641,15 +1641,18 @@ sub create_crl($$%) {
 }
 
 
-=item B<gencrl>()
+=item B<gencrl>( $feersum, $crl_name, [ $cakeypw ] )
 
 Generates a certificate revocation list file.
 
 =cut
 
 
-sub gencrl() {
-  
+sub gencrl($$;$) {
+  my ( $R, $crl_name, $cakeypw ) = @_;
+
+
+  &send_error( $R, &NOT_IMPLEMENTED() );
 }
 
 
@@ -1830,7 +1833,7 @@ sub add_crt_to_crl($$$) {
 
 =item B<remove_crt_from_crl>( $feersum, $crt_name, $crl_name )
 
-Removes a certificate with name $crt_name to a CRL with name $crl_name.
+Removes a certificate with name $crt_name from a CRL with name $crl_name.
 
 =cut
 
