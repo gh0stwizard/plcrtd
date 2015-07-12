@@ -402,8 +402,8 @@
             <th class="w30">Description</th>
             <th class="w05">Days</th>
             <th class="w05">Serial</th>
-            <th class="w25">Template</th>
-            <th class="w05">&nbsp;</th>
+            <th class="w15">Template</th>
+            <th class="w15" colspan="3">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crt.List">
@@ -412,13 +412,89 @@
             <td class="w30" data-bind="text: Description"></td>
             <td class="w05" data-bind="text: Days"></td>
             <td class="w05" data-bind="text: Serial"></td>
-            <td class="w25" data-bind="text: Template"></td>
+            <td class="w20" data-bind="text: Template"></td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.crt.RevokeToggle"
+                title="Revoke">Revoke</a>
+            </td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.crt.UndoRevokeToggle"
+                title="Undo Revoke">Restore</a>
+            </td>
             <td class="w05">
               <a href="#" data-bind="click: $root.crt.Remove" title="Remove">Remove</a>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+    <div class="embedView" data-bind="visible: crt.onRevoke()">
+      <form id="AddCRTtoCRLForm" data-bind="submit: crt.AddToCRL">
+      <table class="hTable">
+        <tbody data-bind="with: crt.Item">
+          <tr>
+            <th>Name</th>
+            <td class="editable" data-bind="text: Name"></td>
+          </tr>
+          <tr>
+            <th>Description</th>
+            <td class="editable" data-bind="text: Description"></td>
+          </tr>
+          <tr>
+            <th>Add to CRL</th>
+            <td class="editable">
+              <select data-bind="options: $root.crt.CRLs(), value: $root.crt.CRLName"></select>
+            </td>
+          </tr>
+          <tr>
+            <td class="button w20">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn" data-bind="click: $root.crt.RevokeToggle">Cancel</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </form>
+    </div>
+    <div class="embedView" data-bind="visible: crt.onUndoRevoke()">
+      <div data-bind="visible: crt.Item() && crt.Item().inCRL().length > 0">
+
+      <form id="RemoveCRTfromCRLForm" data-bind="submit: crt.RemoveFromCRL">
+      <table class="hTable">
+        <tbody data-bind="with: crt.Item">
+          <tr>
+            <th>Name</th>
+            <td class="editable" data-bind="text: Name"></td>
+          </tr>
+          <tr>
+            <th>Description</th>
+            <td class="editable" data-bind="text: Description"></td>
+          </tr>
+          <tr>
+            <th>Remove from CRL</th>
+            <td class="editable">
+              <select data-bind="options: inCRL, value: $root.crt.CRLName"></select>
+            </td>
+          </tr>
+          <tr>
+            <td class="button w20">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn"
+                      data-bind="click: $root.crt.UndoRevokeToggle">Cancel</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </form>
+      </div>
+      <div data-bind="visible: crt.Item() && crt.Item().inCRL().length == 0">
+        <h3>Missing CRL</h3>
+        <p>The certificate was not added to any Certificate Revocation List.</p>
+        <button class="btn"
+                data-bind="click: $root.crt.UndoRevokeToggle">OK</button>
+      </div>
     </div>
   </div>
 
@@ -478,43 +554,24 @@
       <table class="vTable">
         <thead data-bind="visible: crl.List().length > 0">
           <tr>
-            <th class="w30">Name</th>
+            <th class="w25">Name</th>
             <th class="w30">Description</th>
-            <th class="w15">CA</th>
-            <th class="w15">CA key</th>
-            <th class="w10" colspan="2">&nbsp;</th>
+            <th class="w20">CA</th>
+            <th class="w20">CA key</th>
+            <th class="w05">&nbsp;</th>
           </tr>
         </thead>
         <tbody data-bind="foreach: crl.List">
           <tr>
-            <td class="w30" data-bind="text: Name"></td>
-            <td class="w20" data-bind="text: Description"></td>
-            <td class="w15" data-bind="text: CACrtName"></td>
-            <td class="w15" data-bind="text: CAKeyName"></td>
-            <td class="w05">
-              <a href="#" data-bind="click: $root.crl.Activate" 
-                 title="Activate">Activate</a>
-            </td>
+            <td class="w25" data-bind="text: Name"></td>
+            <td class="w30" data-bind="text: Description"></td>
+            <td class="w20" data-bind="text: CACrtName"></td>
+            <td class="w20" data-bind="text: CAKeyName"></td>
             <td class="w05">
               <a href="#" data-bind="click: $root.crl.Remove"
                  title="Remove">Remove</a>
             </td>
           </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="embedView" data-bind="visible: crl.onActivate()">
-      <form id="crlForm" data-bind="submit: crl.AddToList">
-      <table class="hTable">
-        <tbody data-bind="with: crl.CRL">
-          <tr>
-            <td class="button w20">&nbsp;</td>
-            <td class="button">
-              <button class="btn" type="submit">Submit</button>
-              <button class="btn"
-                data-bind="click: $root.crl.ActivateToggle">Cancel</button>
-            </td>
-          </tr>          
         </tbody>
       </table>
     </div>

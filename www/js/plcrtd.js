@@ -109,7 +109,8 @@ $( function() {
       cacrt:    '',
       cakey:    '',
       cakeypw:  '',
-      template: 'Default'
+      template: 'Default',
+      incrl:    [ ]
     };
     options = $.extend( { }, this.defaults, options );
 
@@ -131,6 +132,7 @@ $( function() {
     this.CAKeyPassword = ko.observable( options.cakeypw );
 
     this.Template = ko.observable( options.template );
+    this.inCRL = ko.observableArray( options.incrl );
   }
 
 
@@ -271,7 +273,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'createdb',
+          action: 'CreateDB',
           name: db.Name(),
           desc: db.Description()
         },
@@ -292,7 +294,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'removedb',
+          action: 'RemoveDB',
           name: name
         },
         function ( response ) {
@@ -312,7 +314,7 @@ $( function() {
 
         clearError();
 
-        postJSON( { action: 'removealldb' }, function ( response ) {
+        postJSON( { action: 'RemoveAllDBs' }, function ( response ) {
           if ( 'deleted' in response ) {
             iam.Settings( null );
             iam.List.removeAll();
@@ -331,7 +333,7 @@ $( function() {
       clearError();
 
       postJSON( {
-        action: 'switchdb',
+        action: 'SwitchDB',
         name: name
       },
       function ( response ) {
@@ -366,7 +368,7 @@ $( function() {
       clearError();
 
       postJSON( {
-        action: 'updatedb',
+        action: 'UpdateDB',
         name: name,
         desc: desc
       },
@@ -385,7 +387,7 @@ $( function() {
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'listdbs' }, function ( response ) {
+      postJSON( { action: 'ListDBs' }, function ( response ) {
         if ( 'dbs' in response ) {
           var list = response.dbs,
               total = list.length;
@@ -409,7 +411,7 @@ $( function() {
 
       clearError();
 
-      postJSON( { action: 'currentdb' }, function ( response ) {
+      postJSON( { action: 'CurrentDB' }, function ( response ) {
         if ( 'name' in response ) {
           var dbs = iam.List(),
               len = dbs.length,
@@ -479,7 +481,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'removekey',
+          action: 'RemoveKey',
           name: name
         },
         function ( response ) {
@@ -495,7 +497,7 @@ $( function() {
 
         clearError();
 
-        postJSON( { action: 'removeallkeys' }, function ( response ) {
+        postJSON( { action: 'RemoveAllKeys' }, function ( response ) {
           if ( 'deleted' in response ) {
             iam.List.removeAll();
             iam.WipeToggle();
@@ -512,7 +514,7 @@ $( function() {
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'listkeys' }, function ( response ) {
+      postJSON( { action: 'ListKeys' }, function ( response ) {
         if ( 'keys' in response ) {
           var ary = response.keys,
               len = ary.length;
@@ -568,7 +570,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'removecsr',
+          action: 'RemoveCSR',
           name: name
         },
         function ( response ) {
@@ -584,7 +586,7 @@ $( function() {
 
         clearError();
 
-        postJSON( { action: 'removeallcsrs' }, function ( response ) {
+        postJSON( { action: 'RemoveAllCSRs' }, function ( response ) {
           if ( 'deleted' in response ) {
             iam.List.removeAll();
             iam.WipeToggle();
@@ -602,7 +604,7 @@ $( function() {
       clearError();
       iam.Keys.removeAll();
 
-      postJSON( { action: 'listkeys' }, function ( response ) {
+      postJSON( { action: 'ListKeys' }, function ( response ) {
         if ( 'keys' in response ) {
           var ary = response.keys,
               len = ary.length;
@@ -626,7 +628,7 @@ $( function() {
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'listcsrs' }, function ( response ) {
+      postJSON( { action: 'ListCSRs' }, function ( response ) {
         if ( 'csrs' in response ) {
           var ary = response.csrs,
               len = ary.length;
@@ -707,7 +709,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'removecrt',
+          action: 'RemoveCRT',
           name: name
         },
         function ( response ) {
@@ -724,7 +726,7 @@ $( function() {
 
         clearError();
 
-        postJSON( { action: 'removeallcrts' }, function ( response ) {
+        postJSON( { action: 'RemoveAllCRTs' }, function ( response ) {
           if ( 'deleted' in response ) {
             iam.GetSerial();
             iam.List.removeAll();
@@ -742,7 +744,7 @@ $( function() {
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'listcrts' }, function ( response ) {
+      postJSON( { action: 'ListCRTs' }, function ( response ) {
         if ( 'crts' in response ) {
           var ary = response.crts,
               len = ary.length;
@@ -764,7 +766,7 @@ $( function() {
       clearError();
       iam.CSRs.removeAll();
 
-      postJSON( { action: 'listcsrs' }, function ( response ) {
+      postJSON( { action: 'ListCSRs' }, function ( response ) {
         if ( 'csrs' in response ) {
           var ary = response.csrs,
               len = ary.length;
@@ -782,6 +784,32 @@ $( function() {
       return false;
     }
 
+
+    function GetCRLs ( ) {
+      var iam = this;
+
+      clearError();
+      iam.CRLs.removeAll();
+
+      postJSON( { action: 'ListCRLs' }, function ( response ) {
+        if ( 'crls' in response ) {
+          var ary = response.crls,
+              len = ary.length;
+
+          for ( var i = 0; i < len; i++ ) {
+            iam.CRLs.push( ary[i].name );
+          }
+
+          iam.CRLs.sort();
+        } else {
+          riseError( response.err );
+        }
+      } );
+
+      return false;
+    }
+
+
     function ComputeCrtNames ( ) {
       var result = new Array(),
           crts = this.List(),
@@ -794,13 +822,14 @@ $( function() {
       return result;
     }
 
+
     function GetSerial ( ) {
       var iam = this;
 
       clearError();
       iam.Serial( null );
 
-      postJSON( { action: 'getserial' }, function ( response ) {
+      postJSON( { action: 'GetSerial' }, function ( response ) {
         if ( 'serial' in response ) {
           iam.Serial( response.serial );
         } else {
@@ -811,15 +840,109 @@ $( function() {
       return false;
     }
 
+
+    function RevokeCRTToggle ( crt ) {
+      var iam = this;
+
+      if ( iam.onRevoke() ) {
+        iam.Item( null );
+        iam.onRevoke( false );
+        iam.onTable( true );
+      } else {
+        iam.Item( crt );
+        iam.onRevoke( true );
+        iam.onTable( false );
+      }
+
+      return false;
+    }
+
+
+    function AddCRTtoCRL ( ) {
+      var iam = this,
+          item = iam.Item(),
+          crlName = iam.CRLName(),
+          payload = {
+            action: 'AddToCRL',
+            name:   item.Name(),
+            crl:    crlName
+          };
+
+      clearError();
+      iam.CRLName( null );
+
+      postJSON( payload, function ( response ) {
+        if ( 'name' in response ) {
+          item.inCRL.push( crlName );
+        } else {
+          riseError( response.err, response.msg );
+        }
+
+        iam.RevokeToggle();
+      } );
+    }
+
+
+    function RemoveCRTfromCRL ( ) {
+      var iam = this,
+          item = iam.Item(),
+          crlName = iam.CRLName(),
+          payload = {
+            action: 'RemoveFromCRL',
+            name:   item.Name(),
+            crl:    crlName
+          };
+
+      clearError();
+      iam.CRLName( null );
+
+      postJSON( payload, function ( response ) {
+        if ( 'name' in response ) {
+          item.inCRL.remove( crlName );
+        } else {
+          riseError( response.err, response.msg );
+        }
+
+        iam.UndoRevokeToggle();
+      } );
+    }
+
+
+    function UndoRevokeCRTToggle ( crt ) {
+      var iam = this;
+
+      if ( iam.onUndoRevoke() ) {
+        iam.Item( null );
+        iam.onUndoRevoke( false );
+        iam.onTable( true );
+      } else {
+        iam.Item( crt );
+        iam.onUndoRevoke( true );
+        iam.onTable( false );
+      }
+
+      return false;
+    }
+
+
     $.extend( self.crt, {
-      ListCRTs:   ListCertificates.bind( self.crt ),
-      Keys:       ko.observableArray( [ ] ),
-      GetKeys:    GetKeys.bind( self.crt ),
-      CSRs:       ko.observableArray( [ ] ),
-      GetCSRs:    GetCSRs.bind( self.crt ),
-      CRTs:       ko.computed( ComputeCrtNames.bind( self.crt ) ),
-      Serial:     ko.observable(),
-      GetSerial:  GetSerial.bind( self.crt )
+      ListCRTs:         ListCertificates.bind( self.crt ),
+      Keys:             ko.observableArray( [ ] ),
+      GetKeys:          GetKeys.bind( self.crt ),
+      CSRs:             ko.observableArray( [ ] ),
+      GetCSRs:          GetCSRs.bind( self.crt ),
+      CRTs:             ko.computed( ComputeCrtNames.bind( self.crt ) ),
+      Serial:           ko.observable( 1 ),
+      GetSerial:        GetSerial.bind( self.crt ),
+      onRevoke:         ko.observable( false ),
+      RevokeToggle:     RevokeCRTToggle.bind( self.crt ),
+      AddToCRL:         AddCRTtoCRL.bind( self.crt ),
+      CRLs:             ko.observableArray( [ ] ),
+      GetCRLs:          GetCRLs.bind( self.crt ),
+      CRLName:          ko.observable(),
+      RemoveFromCRL:    RemoveCRTfromCRL.bind( self.crt ),
+      onUndoRevoke:     ko.observable( false ),
+      UndoRevokeToggle: UndoRevokeCRTToggle.bind( self.crt )
     } );
 
 
@@ -831,7 +954,7 @@ $( function() {
         var iam = this,
             item = iam.Item(),
             payload = {
-              action:   'createcrl',
+              action:   'CreateCRL',
               name:     item.Name(),
               desc:     item.Description(),
               days:     item.Days(),
@@ -858,7 +981,7 @@ $( function() {
         clearError();
 
         postJSON( {
-          action: 'removecrl',
+          action: 'RemoveCRL',
           name: name
         },
         function ( response ) {
@@ -874,7 +997,7 @@ $( function() {
 
         clearError();
 
-        postJSON( { action: 'removeallcrls' }, function ( response ) {
+        postJSON( { action: 'RemoveAllCRLs' }, function ( response ) {
           if ( 'deleted' in response ) {
             iam.List.removeAll();
             iam.WipeToggle();
@@ -885,13 +1008,14 @@ $( function() {
       }
     } );
 
+
     function ListCRLs ( ) {
       var iam = this;
 
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'listcrls' }, function ( response ) {
+      postJSON( { action: 'ListCRLs' }, function ( response ) {
         if ( 'crls' in response ) {
           var ary = response.crls,
               len = ary.length;
@@ -907,13 +1031,14 @@ $( function() {
       } );
     }
 
+
     function GetCRTs ( ) {
       var iam = this;
 
       clearError();
       iam.CRTs.removeAll();
 
-      postJSON( { action: 'listcrts' }, function ( response ) {
+      postJSON( { action: 'ListCRTs' }, function ( response ) {
         if ( 'crts' in response ) {
           var ary = response.crts,
               len = ary.length;
@@ -931,37 +1056,12 @@ $( function() {
       return false;
     }
 
-    function GenerateCRL ( entry ) {
-      var iam = this;
-
-    }
-
-    function ActivateCRL ( entry ) {
-      this.onActivate( true );
-      this.onTable( false );
-    }
-
-    function ActivateCRLToggle ( ) {
-      this.onActivate( false );
-      this.onTable( true );
-    }
-
-    function AddCRTtoCRL ( ) {
-      return false;
-    }
-
     $.extend( self.crl, {
-      ListCRLs:       ListCRLs.bind( self.crl ),
-      CRTs:           ko.observableArray( [ ]),
-      GetCRTs:        GetCRTs.bind( self.crl ),
-      Keys:           ko.observableArray( [ ] ),
-      GetKeys:        GetKeys.bind( self.crl ),
-      Generate:       GenerateCRL.bind( self.crl ),
-      Activate:       ActivateCRL.bind( self.crl ),
-      onActivate:     ko.observable(),
-      ActivateToggle: ActivateCRLToggle.bind( self.crl ),
-      AddToList:      AddCRTtoCRL.bind( self.crl ),
-      CRL:            ko.observableArray( [ ] )
+      ListCRLs:   ListCRLs.bind( self.crl ),
+      CRTs:       ko.observableArray( [ ]),
+      GetCRTs:    GetCRTs.bind( self.crl ),
+      Keys:       ko.observableArray( [ ] ),
+      GetKeys:    GetKeys.bind( self.crl )
     } );
 
 
@@ -978,14 +1078,17 @@ $( function() {
       self.onRevoked( false );
     }
 
+
     function clearError ( ) {
       self.errorMessage( null );
       self.errorDescription( null );
     }
 
+
     function clearData ( ) {
       self.cfg.Settings( null );
     }
+
 
     function riseError ( ) {
       self.errorMessage( errors[ arguments[0] ] );
@@ -1000,15 +1103,18 @@ $( function() {
       return false;
     }
 
+
     function plusRequest() {
       var n = self.onAJAX() ? self.onAJAX() : 0;
       self.onAJAX( n + 1 );
     }
 
+
     function minusRequest() {
       var n = self.onAJAX() ? self.onAJAX() : 1;
       self.onAJAX( n - 1 );
     }
+
 
     function postJSON ( payload, success_cb ) {
       plusRequest();
@@ -1032,6 +1138,7 @@ $( function() {
     /*  Router functions  */
 
     function mainPage () { location.hash = 'about'; }
+
 
     /*  Setup routers  */
 
@@ -1072,6 +1179,7 @@ $( function() {
           self.crt.onWipe( false );
           self.crt.GetKeys();
           self.crt.GetCSRs();
+          self.crt.GetCRLs();
           self.crt.GetSerial();
           self.crt.ListCRTs();
           break;

@@ -195,43 +195,43 @@ sub do_post($$$$) {
   AE::log trace => "  %s = %s", $_, $params->{ $_ }
     for sort keys %{ $params };
 
-  if ( $action eq 'listdbs' ) {
+  if ( $action eq 'ListDBs' ) {
     # returns all database entries
 
     &list_dbs( $R );
 
-  } elsif ( $action eq 'createdb' ) {
+  } elsif ( $action eq 'CreateDB' ) {
     # creates new database
     my $db_name = $params->{ 'name' } || '';
     my $db_desc = $params->{ 'desc' } || '';
 
     &create_db( $R, $db_name, $db_desc );
 
-  } elsif ( $action eq 'removedb') {
+  } elsif ( $action eq 'RemoveDB') {
     # removes a database and related files
     my $db_name = $params->{ 'name' } || '';
 
     &remove_db( $R, $db_name );
 
-  } elsif ( $action eq 'switchdb' ) {
+  } elsif ( $action eq 'SwitchDB' ) {
     # returns current database
     my $db_name = $params->{ 'name' } || '';
 
     &switch_db( $R, $db_name );
 
-  } elsif ( $action eq 'updatedb' ) {
+  } elsif ( $action eq 'UpdateDB' ) {
     # updates database settings
     my $db_name = $params->{ 'name' } || '';
     my $db_desc = $params->{ 'desc' } || '';
 
     &update_db( $R, $db_name, $db_desc );
 
-  } elsif ( $action eq 'removealldb' ) {
+  } elsif ( $action eq 'RemoveAllDBs' ) {
     # removes all user database entries
 
     &remove_all_dbs( $R );
 
-  } elsif ( $action eq 'currentdb' ) {
+  } elsif ( $action eq 'CurrentDB' ) {
     # returns a name of current user database
 
     &current_db( $R );
@@ -246,18 +246,18 @@ sub do_post($$$$) {
 
     &genkey( $R, $name, $type, $bits, $cipher, $passwd );
 
-  } elsif ( $action eq 'removekey' ) {
+  } elsif ( $action eq 'RemoveKey' ) {
     # removes a private key from an user database
     my $name = $params->{ 'name' } || '';
 
     &remove_key( $R, $name );
 
-  } elsif ( $action eq 'listkeys' ) {
+  } elsif ( $action eq 'ListKeys' ) {
     # return a list of all private keys
 
     &list_keys( $R );
 
-  } elsif ( $action eq 'removeallkeys' ) {
+  } elsif ( $action eq 'RemoveAllKeys' ) {
     # removes all entries for private keys from an user database
 
     &remove_all_keys( $R );
@@ -276,18 +276,18 @@ sub do_post($$$$) {
 
     &gencsr( $R, $name, %options );
 
-  } elsif ( $action eq 'listcsrs' ) {
+  } elsif ( $action eq 'ListCSRs' ) {
     # list of certificate requests
 
     &list_csrs( $R );
 
-  } elsif ( $action eq 'removecsr' ) {
+  } elsif ( $action eq 'RemoveCSR' ) {
     # remove a certificate request
     my $name = $params->{ 'name' } || '';
 
     &remove_csr( $R, $name );
 
-  } elsif ( $action eq 'removeallcsrs' ) {
+  } elsif ( $action eq 'RemoveAllCSRs' ) {
     # removes all certificate requests from an user database
 
     &remove_all_csrs( $R );
@@ -323,23 +323,23 @@ sub do_post($$$$) {
 
     &gencrt( $R, $name, %settings );
 
-  } elsif ( $action eq 'listcrts' ) {
+  } elsif ( $action eq 'ListCRTs' ) {
     # return a list of all certificates
 
     &list_crts( $R );
 
-  } elsif ( $action eq 'removecrt' ) {
+  } elsif ( $action eq 'RemoveCRT' ) {
     # remove a certificate
     my $name = $params->{ 'name' } || '';
 
     &remove_crt( $R, $name );
 
-  } elsif ( $action eq 'removeallcrts' ) {
+  } elsif ( $action eq 'RemoveAllCRTs' ) {
     # removes all certificates from an user database
 
     &remove_all_crts( $R );
 
-  } elsif ( $action eq 'createcrl' ) {
+  } elsif ( $action eq 'CreateCRL' ) {
     # inserts a new certificate revocation list record
     # into an user database
     my $name = $params->{ 'name' } || '';
@@ -361,31 +361,46 @@ sub do_post($$$$) {
 
     &gencrl( $R, $name, $cakeypw );
 
-  } elsif ( $action eq 'listcrls' ) {
+  } elsif ( $action eq 'ListCRLs' ) {
     # return a list of all certificate revocation lists
 
     &list_crls( $R );
 
-  } elsif ( $action eq 'removecrl' ) {
+  } elsif ( $action eq 'RemoveCRL' ) {
     # remove a certificate revocation list
     my $name = $params->{ 'name' } || '';
 
     &remove_crl( $R, $name );
 
-  } elsif ( $action eq 'removeallcrls' ) {
+  } elsif ( $action eq 'RemoveAllCRLs' ) {
     # removes all certificate revocation lists 
     # from an user database
 
     &remove_all_crls( $R );
 
-  } elsif ( $action eq 'getserial' ) {
+  } elsif ( $action eq 'GetSerial' ) {
     # returns serial for certificate generation
 
     &get_serial( $R );
 
+  } elsif ( $action eq 'AddToCRL' ) {
+    # append a certificate to a CRL
+    my $crt_name = $params->{ 'name' } || '';
+    my $crl_name = $params->{ 'crl'} || '';
+
+    &add_crt_to_crl( $R, $crt_name, $crl_name );
+
+  } elsif ( $action eq 'RemoveFromCRL' ) {
+    # remove a certificate from a CRL
+    my $crt_name = $params->{ 'name' } || '';
+    my $crl_name = $params->{ 'crl'} || '';
+
+    &remove_crt_from_crl( $R, $crt_name, $crl_name );    
+
   } else {
     # wrong input data
     &send_error( $R, &NOT_IMPLEMENTED() );
+
   }
 
   return;
@@ -1439,6 +1454,7 @@ sub gencrt($$%) {
         days      => $params{ 'days' },
         serial    => $serial,
         template  => $params{ 'template' },
+        incrl     => [ ],
         out       => $crtout,
       )
     ;
@@ -1745,6 +1761,133 @@ sub get_serial($) {
   defined $serial
     ? &send_response( $R, 'serial', $serial )
     : &send_error( $R, &EINT_ERROR(), 'invalid serial' );
+}
+
+
+=item B<add_crt_to_crl>( $feersum, $crt_name, $crl_name )
+
+Adds a certificate with name $crt_name to a CRL with name $crl_name.
+
+=cut
+
+
+sub add_crt_to_crl($$$) {
+  my ( $R, $crt_name, $crl_name ) = @_;
+
+
+  if ( not &check_file_name( $crt_name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'invalid crt name' );
+    return;
+  }
+
+  if ( not &check_file_name( $crl_name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'invalid crl name' );
+    return;
+  }
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $crl = $db->fetch_json( 'crl_' . $crl_name )
+    or return &send_error( $R, &EINT_ERROR(), 'crl is missing' );
+
+  my $crt = $db->fetch_json( 'crt_' . $crt_name )
+    or return &send_error( $R, &EINT_ERROR(), 'crt is missing' );
+
+
+  if ( ref $crt->{ 'incrl' } eq 'ARRAY' ) {
+    # check if crt already has a crl record
+    my $list = $crt->{ 'incrl' };
+    my %crls = map { +"$_" => 1 } @{ $list };
+
+    if ( exists $crls{ $crl_name } ) {
+      &send_error( $R, &EINT_ERROR(), 'already added to this CRL' );
+      return;
+    }
+
+    # add crl name
+    push @$list, $crl_name;
+
+  } else {
+    # create array if needed
+    my @list = ( $crl_name );
+    $crt->{ 'incrl' } = \@list;
+
+  }
+
+  # update record
+  $db->store( 'crt_' . $crt_name, encode_json( $crt ) )
+    ? &send_response( $R, 'name', $crt_name )
+    : &send_error( $R, &EINT_ERROR(), 'failed to store crt' );
+}
+
+
+=item B<remove_crt_from_crl>( $feersum, $crt_name, $crl_name )
+
+Removes a certificate with name $crt_name to a CRL with name $crl_name.
+
+=cut
+
+
+sub remove_crt_from_crl($$$) {
+  my ( $R, $crt_name, $crl_name ) = @_;
+
+
+  if ( not &check_file_name( $crt_name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'invalid crt name' );
+    return;
+  }
+
+  if ( not &check_file_name( $crl_name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'invalid crl name' );
+    return;
+  }
+
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+  my $crl = $db->fetch_json( 'crl_' . $crl_name )
+    or return &send_error( $R, &EINT_ERROR(), 'crl is missing' );
+
+  my $crt = $db->fetch_json( 'crt_' . $crt_name )
+    or return &send_error( $R, &EINT_ERROR(), 'crt is missing' );
+
+
+  if ( ref $crt->{ 'incrl' } eq 'ARRAY' ) {
+    # check if crt already has a crl record
+    my $list = $crt->{ 'incrl' };
+    my %crls = map { +"$_" => 1 } @{ $list };
+
+    if ( exists $crls{ $crl_name } ) {
+      delete $crls{ $crl_name };
+      @$list = keys %crls;
+    } else {
+      &send_error( $R, &EINT_ERROR(), 'crl not found' );
+      return;
+    }
+
+  } else {
+    # create an empty list
+    $crt->{ 'incrl' } = [ ];
+
+  }
+
+  # update record
+  $db->store( 'crt_' . $crt_name, encode_json( $crt ) )
+    ? &send_response( $R, 'name', $crt_name )
+    : &send_error( $R, &EINT_ERROR(), 'failed to store crt' );
 }
 
 
