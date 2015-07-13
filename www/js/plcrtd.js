@@ -252,14 +252,21 @@ $( function() {
     self.onRevoked = ko.observable( false );
 
 
-    /*  Behaviours  */
+    /* Header */
 
-    self.About  =       function () { location.hash = 'about';        }
-    self.Configure =    function () { location.hash = 'configure';    }
-    self.PrivateKeys =  function () { location.hash = 'privatekeys';  }
-    self.Requests =     function () { location.hash = 'requests';     }
-    self.Certificates = function () { location.hash = 'certificates'; }
-    self.Revoked =      function () { location.hash = 'revoked';      }
+    self.chapters = [
+      'About',
+      'Settings',
+      'Private keys',
+      'Requests',
+      'Certificates',
+      'CRL'
+    ];
+
+
+    /*  Behaviours: chapters  */
+
+    self.selectChapter = function ( chapter ) { location.hash = chapter }
 
 
     /*  Behaviours: Configuration  */
@@ -1137,7 +1144,7 @@ $( function() {
 
     /*  Router functions  */
 
-    function mainPage () { location.hash = 'about'; }
+    function mainPage () { location.hash = 'About'; }
 
 
     /*  Setup routers  */
@@ -1150,21 +1157,21 @@ $( function() {
       cleanAll();
 
       switch ( action ) {
-        case 'configure':
+        case 'Settings':
           self.onConfigure( true );
           self.cfg.onTable( true );
           self.cfg.onCreate( false );
           self.cfg.onWipe( false );
           self.cfg.ListDBs();
           break;
-        case 'privatekeys':
+        case 'Private keys':
           self.onPrivateKeys( true );
           self.pk.onTable( true );
           self.pk.onCreate( false );
           self.pk.onWipe( false );
           self.pk.ListPKs();
           break;
-        case 'requests':
+        case 'Requests':
           self.onRequests( true );
           self.csr.onTable( true );
           self.csr.onCreate( false );
@@ -1172,7 +1179,7 @@ $( function() {
           self.csr.GetKeys();
           self.csr.ListCSRs();
           break;
-        case 'certificates':
+        case 'Certificates':
           self.onCertificates( true );
           self.crt.onTable( true );
           self.crt.onCreate( false );
@@ -1183,7 +1190,7 @@ $( function() {
           self.crt.GetSerial();
           self.crt.ListCRTs();
           break;
-        case 'revoked':
+        case 'CRL':
           self.onRevoked( true );
           self.crl.onTable( true );
           self.crl.onCreate( false );
@@ -1192,7 +1199,7 @@ $( function() {
           self.crl.GetKeys();
           self.crl.ListCRLs();
           break;
-        case 'about':
+        case 'About':
           self.onAbout( true );
           break;
         default:

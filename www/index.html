@@ -21,15 +21,13 @@
 <div class="content">
   <!-- Header :: buttons & loading animation //-->
   <div class="header">
-      <button class="btn" data-bind="click: About">About</button>
-      <button class="btn" data-bind="click: Configure">Settings</button>
-      <button class="btn" data-bind="click: PrivateKeys">Private keys</button>
-      <button class="btn" data-bind="click: Requests">Requests</button>
-      <button class="btn" data-bind="click: Certificates">Certificates</button>
-      <button class="btn" data-bind="click: Revoked">Revoked</button>
-      <!-- http://spiffygif.com //-->
-      <img src="/img/spiffygif.gif" alt="Loading"
-           data-bind="visible: onAJAX()" />
+    <img src="/img/spiffygif.gif" alt="Loading"
+         data-bind="visible: onAJAX()" />
+    <ul class="chapters" data-bind="foreach: chapters">
+      <li data-bind="text: $data, click: $root.selectChapter"></li>
+    </ul>
+    <!-- http://spiffygif.com //-->
+
   </div>
 
   <!-- Error message box //-->

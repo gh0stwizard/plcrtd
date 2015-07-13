@@ -52,15 +52,40 @@ button:disabled.btn {
 
 /*  Header  */
 
-.header button {
-  margin-left: 18px;
+.header {
+  display: inline-block;
+  width: 100%;
+  vertical-align: middle;
+}
+.header ul {
+  margin-left: 3px;
 }
 .header img {
   height: 24px;
   width: 24px;
   float: right;
-  vertical-align: middle;
+  padding: 5px 0px;
 }
+
+.chapters {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+  font-size: 1.0em;
+  font-weight: bold;
+}
+.chapters li:hover {
+  background: #339955;
+}
+.chapters li {
+  display: inline-block;
+  cursor: pointer;
+  padding: 5px 15px;
+  background-color: #029;
+  color: #fff;
+}
+
 
 /*  Pages  */
 
@@ -214,4 +239,6 @@ input.wide {
 .w40 { width: 40%; }
 .w70 { width: 70%; }
 .w75 { width: 75%; }
+
+
 
