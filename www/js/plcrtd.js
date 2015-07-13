@@ -249,7 +249,9 @@ $( function() {
     self.onPrivateKeys = ko.observable( false );
     self.onRequests = ko.observable( false );
     self.onCertificates = ko.observable( false );
-    self.onRevoked = ko.observable( false );
+    self.onCRL = ko.observable( false );
+    self.onDeploy = ko.observable( false );
+    self.onExport = ko.observable( false );
 
 
     /* Header */
@@ -260,7 +262,9 @@ $( function() {
       'Private keys',
       'Requests',
       'Certificates',
-      'CRL'
+      'CRL',
+      'Deploy',
+      'Export'
     ];
 
 
@@ -1082,7 +1086,9 @@ $( function() {
       self.onPrivateKeys( false );
       self.onRequests( false );
       self.onCertificates( false );
-      self.onRevoked( false );
+      self.onCRL( false );
+      self.onDeploy( false );
+      self.onExport( false );
     }
 
 
@@ -1191,7 +1197,7 @@ $( function() {
           self.crt.ListCRTs();
           break;
         case 'CRL':
-          self.onRevoked( true );
+          self.onCRL( true );
           self.crl.onTable( true );
           self.crl.onCreate( false );
           self.crl.onWipe( false );
@@ -1201,6 +1207,12 @@ $( function() {
           break;
         case 'About':
           self.onAbout( true );
+          break;
+        case 'Deploy':
+          self.onDeploy( true );
+          break;
+        case 'Export':
+          self.onExport( true );
           break;
         default:
           mainPage();

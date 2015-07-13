@@ -497,7 +497,7 @@
   </div>
 
   <!-- Revocation List Page //-->
-  <div class="Page" data-bind="visible: onRevoked()">
+  <div class="Page" data-bind="visible: onCRL()">
     <h1>Certificate revocation lists</h1>
     <button class="btn" data-bind="click: crl.CreateToggle">Create CRL</button>
     <button class="btn" data-bind="click: crl.WipeToggle">Wipe CRLs</button>
@@ -573,6 +573,16 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Deploy Page //-->
+  <div class="Page" data-bind="visible: onDeploy()">
+    <h1>Deployment</h1>
+  </div>
+
+  <!-- Export Page //-->
+  <div class="Page" data-bind="visible: onExport()">
+    <h1>Export</h1>
   </div>
 
   <div class="footer"></div>

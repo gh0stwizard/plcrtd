@@ -24,7 +24,8 @@ table {
   border: 0;
 }
 .btn:hover {
-  background: #339955;
+  background-color: #339955;
+  cursor: pointer;
 }
 
 /* http://stackoverflow.com/questions/3759692/css-selector-for-disabled-input-type-submit */
@@ -72,7 +73,7 @@ button:disabled.btn {
   padding: 0;
   margin: 0;
   font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
-  font-size: 1.0em;
+  font-size: 0.85em;
   font-weight: bold;
 }
 .chapters li:hover {
