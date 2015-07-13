@@ -258,9 +258,9 @@ $( function() {
 
     self.chapters = [
       'About',
-      'Settings',
+      'DB',
       'Private keys',
-      'Requests',
+      'CSR',
       'Certificates',
       'CRL',
       'Deploy',
@@ -1163,7 +1163,7 @@ $( function() {
       cleanAll();
 
       switch ( action ) {
-        case 'Settings':
+        case 'DB':
           self.onConfigure( true );
           self.cfg.onTable( true );
           self.cfg.onCreate( false );
@@ -1177,7 +1177,7 @@ $( function() {
           self.pk.onWipe( false );
           self.pk.ListPKs();
           break;
-        case 'Requests':
+        case 'CSR':
           self.onRequests( true );
           self.csr.onTable( true );
           self.csr.onCreate( false );
