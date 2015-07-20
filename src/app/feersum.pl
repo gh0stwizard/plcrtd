@@ -27,6 +27,8 @@ use JSON::XS qw( encode_json decode_json );
 use Scalar::Util ();
 use HTML::Entities ();
 use Encode qw( decode_utf8 );
+use File::Spec::Functions qw( catdir catfile );
+use Cwd qw( realpath );
 use Local::DB::UnQLite;
 
 
@@ -39,20 +41,6 @@ my $RDBUFFSIZE = 32 * 1024;
 
 # http headers for responses
 my @HEADER_JSON = ( 'Content-Type' => 'application/json; charset=UTF-8' );
-
-# FIXME
-my @HEADER_P12 =
-  ( 
-    'Content-Type' => 'application/octet-stream',
-    'Content-disposition' => 'attachment; filename=client.p12',
-  )
-;
-my @HEADER_PEM =
-  ( 
-    'Content-Type' => 'application/octet-stream',
-    'Content-disposition' => 'attachment; filename=client.pem',
-  )
-;
 
 # ref.: openssl dgst --help
 my %DIGESTS =
@@ -395,7 +383,19 @@ sub do_post($$$$) {
     my $crt_name = $params->{ 'name' } || '';
     my $crl_name = $params->{ 'crl'} || '';
 
-    &remove_crt_from_crl( $R, $crt_name, $crl_name );    
+    &remove_crt_from_crl( $R, $crt_name, $crl_name );
+
+  } elsif ( $action eq 'Deploy' ) {
+    # deploy
+    my $name = $params->{ 'name' } || '';
+    my $host = $params->{ 'host' } || 'localhost';
+
+    &deploy( $R, $name, $host );
+
+  } elsif ( $action eq 'Export' ) {
+    # export
+
+    &send_error( $R, &NOT_IMPLEMENTED() );
 
   } else {
     # wrong input data
@@ -911,8 +911,7 @@ sub check_db_name($) {
 
 =item B<check_file_name>( $name )
 
-Performs a test if a specified file name $name is
-valid.
+Performs a test if a specified file name $name is a valid.
 
 The name $name may contents alphanumeric characters and
 next symbols: '-', '_', '.'.
@@ -930,6 +929,32 @@ sub check_file_name($) {
 
   if ( $length >= 1 && $length <= 128 ) {
     return ( $name =~ m/^[\w\-\.\_]+$/o );
+  } else {
+    return 0;
+  }
+}
+
+
+=item B<check_dir_name>( $name )
+
+Performs a test if a specified directory name $name is a valid.
+
+The name $name may contents alphanumeric characters and
+next symbols: '-', '_'.
+
+A length of a name must be between 1 and 128 symbols.
+
+=cut
+
+
+sub check_dir_name($) {
+  my ( $name ) = @_;
+
+
+  my $length = length( $name );
+
+  if ( $length >= 1 && $length <= 128 ) {
+    return ( $name =~ m/^[\w\-\_]+$/o );
   } else {
     return 0;
   }
@@ -1891,6 +1916,49 @@ sub remove_crt_from_crl($$$) {
   $db->store( 'crt_' . $crt_name, encode_json( $crt ) )
     ? &send_response( $R, 'name', $crt_name )
     : &send_error( $R, &EINT_ERROR(), 'failed to store crt' );
+}
+
+
+=item B<deploy>( $feersum, $name, $host )
+
+Deploy certificates with directory name $name on host $host.
+
+=cut
+
+
+sub deploy($$$) {
+  my ( $R, $name, $host ) = @_;
+
+
+  if ( not &check_dir_name( $name ) ) {
+    &send_error( $R, &INVALID_NAME(), 'invalid name' );
+    return;
+  }
+
+  my $dir = catdir( &get_setting( 'DEPLOY_DIR' ), $name );
+
+  AE::log info => "deploying to \`%s\'", $dir;
+
+  if ( -e $dir ) {
+    -d $dir 
+      or return &send_error( $R, &INVALID_NAME(), "$dir: $!" );
+  } else {
+    AE::log debug => "creating directory \`%s\'", $dir;
+    mkdir ( $dir, 0700 )
+      or return &send_error( $R, &EINT_ERROR(), "mkdir $dir: $!" );
+  }
+
+  my $maindb = Local::DB::UnQLite->new( '__db__' );
+  my $dbname = $maindb->fetch( '_' )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  $maindb->fetch( $dbname )
+    or return &send_error( $R, &MISSING_DATABASE() );
+
+  my $db = Local::DB::UnQLite->new( $dbname );
+
+
+  &send_response( $R, 'name', $name );
 }
 
 

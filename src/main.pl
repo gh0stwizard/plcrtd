@@ -16,7 +16,7 @@ use File::Spec::Functions ();
 use File::Path ();
 
 
-$PROGRAM_NAME = "plcrtd"; $VERSION = '0.06';
+$PROGRAM_NAME = "plcrtd"; $VERSION = '0.07';
 
 
 my $retval = GetOptions
@@ -36,7 +36,8 @@ my $retval = GetOptions
     'listen|l=s',         # listen on IP:PORT
     'backend|b=s',        # backend: feersum
     'app|a=s',            # application file
-    'workdir|W=s',        # working directory
+    'work-dir|W=s',       # working directory
+    'deploy-dir|D=s',     # deploy directory
   )
 ;
 
@@ -229,7 +230,8 @@ sub set_abs_paths() {
       logfile
       home
       pidfile
-      workdir
+      work-dir
+      deploy-dir
     )
   ;
 
@@ -261,9 +263,10 @@ sub set_abs_paths() {
 sub set_default_options() {
   my %defaultmap =
     (
-      'backend'	=> 'feersum',
-      'app'	    => 'feersum',
-      'workdir' => '.',
+      'backend'	    => 'feersum',
+      'app'	        => 'feersum',
+      'work-dir'    => '.',
+      'deploy-dir'  => '.',
     )
   ;
   
@@ -288,7 +291,8 @@ sub set_env() {
       'listen'      => join( '_', $prefix, 'LISTEN' ),
       'app'	        => join( '_', $prefix, 'APP_NAME' ),
       'logfile'			=> join( '_', $prefix, 'LOGFILE' ),
-      'workdir'     => join( '_', $prefix, 'WORKDIR' ),
+      'work-dir'    => join( '_', $prefix, 'WORKDIR' ),
+      'deploy-dir'  => join( '_', $prefix, 'DEPLOY_DIR' ),
     )
   ;
 
@@ -392,7 +396,9 @@ sub print_help() {
   
   printf $h, "--home [-H] arg", "home directory after fork";
   printf $h, "", "- default: root directory";
-  printf $h, "--workdir [-W] arg", "working directory";
+  printf $h, "--work-dir [-W] arg", "working directory";
+  printf $h, "", "- default: .";
+  printf $h, "--deploy-dir [-D] arg", "deploy directory";
   printf $h, "", "- default: .";
 
   print "Logging options:";
@@ -480,13 +486,18 @@ Changes home directory when the program is running
 in the background mode. Changing the directory approaches
 before first fork() call.
 
-=item --B<workdir>, -B<W> = I</my/work/dir>
+=item --B<work-dir>, -B<W> = I</my/work/dir>
 
 Sets a working directory. Inside this directory the program
 will keep all its files.
 
 If a specified directory does not exists, it will be
 created automatically.
+
+=item --B<deploy-dir>, -B<D> = I</my/deploy/dir>
+
+Sets a deploy directory. Inside this directory the program
+will keep deployed certificates and private keys.
 
 =back
 

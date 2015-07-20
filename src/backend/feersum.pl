@@ -33,12 +33,13 @@ use Local::DB::UnQLite;
 my %CURRENT_SETTINGS;
 my %DEFAULT_SETTINGS =
   (
-    'LISTEN'    => '127.0.0.1:28980',
-    'APP_NAME'  => 'app+feersum.pl',
-    'SOMAXCONN' => &Socket::SOMAXCONN(),
-    'PIDFILE'   => '',
-    'LOGFILE'   => '',
-    'WORKDIR'   => '.',
+    'LISTEN'      => '127.0.0.1:28980',
+    'APP_NAME'    => 'app+feersum.pl',
+    'SOMAXCONN'   => &Socket::SOMAXCONN(),
+    'PIDFILE'     => '',
+    'LOGFILE'     => '',
+    'WORKDIR'     => '.',
+    'DEPLOY_DIR'  => '.',
   )
 ;
 

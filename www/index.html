@@ -578,6 +578,53 @@
   <!-- Deploy Page //-->
   <div class="Page" data-bind="visible: onDeploy()">
     <h1>Deployment</h1>
+    <button class="btn" data-bind="click: dpl.LocalToggle">Localhost</button>
+    <button class="btn" data-bind="click: dpl.RemoteToggle">Remote</button>
+    <div class="embedView" data-bind="visible: dpl.onLocal()">
+      <form id="crlForm" data-bind="submit: dpl.Deploy">
+      <table class="hTable">
+        <tbody data-bind="with: dpl.Item">
+          <tr>
+            <th class="w20">Name</th>
+            <td class="editable"><input data-bind="value: Name" /></td>
+          </tr>
+          <tr>
+            <td class="button w20">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn"
+                data-bind="click: $root.dpl.LocalToggle">Cancel</button>
+            </td>
+          </tr>          
+        </tbody>
+      </table>
+      </form>
+    </div>
+    <div class="embedView" data-bind="visible: dpl.onRemote()">
+      <form id="crlForm" data-bind="submit: dpl.Deploy">
+      <table class="hTable">
+        <tbody data-bind="with: dpl.Item">
+          <tr>
+            <th class="w20">Name</th>
+            <td class="editable"><input data-bind="value: Name" /></td>
+          </tr>
+          <tr>
+            <th class="w20">Host</th>
+            <td class="editable"><input data-bind="value: Host" /></td>
+          </tr>
+          <tr>
+            <td class="button w20">&nbsp;</td>
+            <td class="button">
+              <button class="btn" type="submit">Submit</button>
+              <button class="btn"
+                data-bind="click: $root.dpl.RemoteToggle">Cancel</button>
+            </td>
+          </tr>          
+        </tbody>        
+        </tbody>
+      </table>
+      </form>
+    </div>
   </div>
 
   <!-- Export Page //-->

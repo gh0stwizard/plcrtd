@@ -156,6 +156,27 @@ $( function() {
   }
 
 
+  function Deploy ( options ) {
+    this.defaults = {
+      name: 'deploy1',
+      host: 'localhost'
+    };
+    options = $.extend( { }, this.defaults, options );
+
+    this.Name = ko.observable( options.name );
+    this.Host = ko.observable( options.host );
+  }
+
+
+  function Export ( options ) {
+    this.defaults = {
+      /* TODO */
+    };
+    options = $.extend( { }, this.defaults, options );
+
+  }
+
+
   function Page ( args ) {
     this.defaults = { };
     this.args = $.extend( { }, this.defaults, args );
@@ -1073,6 +1094,70 @@ $( function() {
       GetCRTs:    GetCRTs.bind( self.crl ),
       Keys:       ko.observableArray( [ ] ),
       GetKeys:    GetKeys.bind( self.crl )
+    } );
+
+
+    /*  Behaviours: Deploy  */
+
+
+    self.dpl = new Page( {
+      CreateItem: function ( ) { return new Deploy(); },
+    } );
+
+
+    function DeployIt ( ) {
+      var iam = this,
+          item = iam.Item(),
+          payload = {
+            action:   'Deploy',
+            name:     item.Name(),
+            host:     item.Host()
+          };
+
+      clearError();
+
+      postJSON( payload, function ( response ) {
+        if ( 'name' in response ) {
+
+          alert( 'Deploy Ok!' );
+
+        } else {
+          riseError( response.err, response.msg );
+        }
+
+        return false;
+      } );      
+    }
+
+
+    function DeployLocalToggle ( ) {
+      this.Item( this.CreateItem() );
+      this.onLocal( ! this.onLocal() );
+      this.onRemote( false );
+    }
+
+
+    function DeployRemoteToggle ( ) {
+      this.Item( this.CreateItem() );
+      this.onRemote( ! this.onRemote() );
+      this.onLocal( false );
+    }
+
+
+    $.extend( self.dpl, {
+      onLocal:      ko.observable( false ),
+      onRemote:     ko.observable( false ),
+      Deploy:       DeployIt.bind( self.dpl ),
+      LocalToggle:  DeployLocalToggle.bind( self.dpl ),
+      RemoteToggle: DeployRemoteToggle.bind( self.dpl )
+    } );
+
+
+    /*  Behaviours: Export  */
+
+
+    self.exp = new Page( {
+      CreateItem: function ( ) { return new Export(); },
     } );
 
 
