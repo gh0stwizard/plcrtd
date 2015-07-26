@@ -9,16 +9,14 @@ SP_FILE=${HOME}/staticperl
 BOOT_FILE="../src/main.pl"
 
 
-if [ -f ${RC_FILE} ]; then
+if [ -r ${RC_FILE} ]; then
 	. ${RC_FILE}
 else
 	echo "${RC_FILE}: not found"
 	exit 1
 fi
 
-if [ ! -d "${BIN_DIR}" ]; then
-	mkdir ${BIN_DIR} || exit 1
-fi
+[ -d ${BIN_DIR} ] || mkdir ${BIN_DIR} || exit 1
 
 ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -Msort.pm \
@@ -51,10 +49,15 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MUnQLite \
 -MFile::Path \
 -MData::Dumper \
+-MTemplate \
+-MTemplate::Filters \
+-MTemplate::Stash::XS \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \
 --add "../src/app/feersum.pl app/feersum.pl" \
 --add "../src/backend/feersum.pl backend/feersum.pl" \
 --add "../src/modules/Local/DB/UnQLite.pm Local/DB/UnQLite.pm" \
+--add "../src/modules/Local/OpenSSL/Conf.pm Local/OpenSSL/Conf.pm" \
+--add "../src/modules/Local/OpenSSL/Script/Revoke.pm Local/OpenSSL/Script/Revoke.pm" \
 $@

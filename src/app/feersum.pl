@@ -6,6 +6,8 @@
 # under the same terms as the Perl 5 programming language system itself.
 
 
+=pod
+
 =encoding utf-8
 
 =head1 NAME
@@ -30,6 +32,8 @@ use Encode qw( decode_utf8 );
 use File::Spec::Functions qw( catdir catfile );
 use Cwd qw( realpath );
 use Local::DB::UnQLite;
+use Local::OpenSSL::Conf;
+use Local::OpenSSL::Script::Revoke;
 
 
 # body checks
@@ -340,14 +344,6 @@ sub do_post($$$$) {
     ;
 
     &create_crl( $R, $name, %options );
-
-  } elsif ( $action eq 'gencrl' ) {
-    # generates a new certificate revocation list file
-    # and stores it into an user database
-    my $name = $params->{ 'name' } || '';
-    my $cakeypw = $params->{ 'cakeypw' } || '';
-
-    &gencrl( $R, $name, $cakeypw );
 
   } elsif ( $action eq 'ListCRLs' ) {
     # return a list of all certificate revocation lists
@@ -1919,15 +1915,15 @@ sub remove_crt_from_crl($$$) {
 }
 
 
-=item B<deploy>( $feersum, $name, $host )
+=item B<deploy>( $feersum, $name, $host, [ $ca_key_password ] )
 
 Deploy certificates with directory name $name on host $host.
 
 =cut
 
 
-sub deploy($$$) {
-  my ( $R, $name, $host ) = @_;
+sub deploy($$$;$) {
+  my ( $R, $name, $host, $ca_pass ) = @_;
 
 
   if ( not &check_dir_name( $name ) ) {
@@ -1942,6 +1938,8 @@ sub deploy($$$) {
   if ( -e $dir ) {
     -d $dir 
       or return &send_error( $R, &INVALID_NAME(), "$dir: $!" );
+
+    # TODO cleanup files
   } else {
     AE::log debug => "creating directory \`%s\'", $dir;
     mkdir ( $dir, 0700 )
@@ -1956,11 +1954,127 @@ sub deploy($$$) {
     or return &send_error( $R, &MISSING_DATABASE() );
 
   my $db = Local::DB::UnQLite->new( $dbname );
+  my %data = 
+    (
+      name => $name,
+      path => $dir,
+      keys => \my @keys_files,
+      csrs => \my @csrs_files,
+      crts => \my @crts_files,
+    );
+
+  my $keys = $db->like_json( '^key_' );
+  for my $key ( values @$keys ) {
+    my $filename = catfile( $dir, join( '.', $key->{ 'name' }, 'key' ) );
+
+    open( my $fh, ">:raw", $filename )
+      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+    syswrite( $fh, $key->{ 'out' } )
+      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+    close( $fh )
+      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+
+    push @keys_files, $filename;
+    AE::log debug => "created key file: %s", $filename;
+  }
+
+  my $csrs = $db->like_json( '^csr_' );
+  for my $csr ( values @$csrs ) {
+    my $filename = catfile( $dir, join( '.', $csr->{ 'name' }, 'csr' ) );
+
+    open( my $fh, ">:raw", $filename )
+      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+    syswrite( $fh, $csr->{ 'out' } )
+      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+    close( $fh )
+      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+
+    push @csrs_files, $filename;
+    AE::log debug => "created CSR file: %s", $filename;
+  }
+
+  my %crl_data;
+  my $crts = $db->like_json( '^crt_' );
+  for my $crt ( values @$crts ) {
+    my $filename = catfile( $dir, join( '.', $crt->{ 'name' }, 'crt' ) );
+
+    open( my $fh, ">:raw", $filename )
+      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+    syswrite( $fh, $crt->{ 'out' } )
+      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+    close( $fh )
+      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+
+    push @crts_files, $filename;
+    AE::log debug => "created CRT file: %s", $filename;
+
+    for my $crl_name ( @{ $crt->{ 'incrl' } } ) {
+      if ( exists $crl_data{ $crl_name } ) {
+        push @{ $crl_data{ $crl_name } }, $filename;
+      } else {
+        $crl_data{ $crl_name } = [ $filename ];
+      }
+    }
+  }
+
+  # generate a CRL file
+  my $crls = $db->like_json( '^crl_' );
+
+  for my $crl ( values @$crls ) {
+    my $name = $crl->{ 'name' };
+
+    next unless exists $crl_data{ $name };
+
+    my $filename = catfile( $dir, join( '.', $name, 'crl', 'pem' ) );
+    my $ca_crt = catfile( $dir, join( '.', $crl->{ 'cacrt' }, 'crt' ) );
+    my $ca_key = catfile( $dir, join( '.', $crl->{ 'cakey' }, 'key' ) );
+
+    next if @{ $crl_data{ $name } } == 0;
+
+    my $cfg = Local::OpenSSL::Conf->new( target_directory => $dir );
+    my $cfg_file = $cfg->generate()
+      or return &send_error( $R, &EINT_ERROR(), $cfg->error() );
+
+    AE::log trace => "openssl.conf: %s", $cfg_file;
+    AE::log trace => &readfile( $cfg_file );
+
+    my $sh = new Local::OpenSSL::Script::Revoke
+        target_directory => $dir,
+        crts => $crl_data{ $name },
+        ca_key => $ca_key,
+        ca_crt => $ca_crt,
+        crl_file => $filename,
+    ;
+    my $sh_file = $sh->generate()
+      or return &send_error( $R, &EINT_ERROR(), $sh->error() );
+
+    AE::log trace => "revoke.sh: %s", $sh_file;
+    AE::log trace => &readfile( $sh_file );
+
+    #
+    # TODO
+    #
+  }
 
 
-  &send_response( $R, 'name', $name );
+  &send_response( $R, %data );
 }
 
+
+sub readfile {
+  my ( $file ) = @_;
+
+
+  if ( open( my $fh, "<:raw", $file ) ) {
+    my $data = do { local $/; <$fh> };
+    close( $fh ) and return $data;
+    AE::log error => "close %s: %s", $file, $!;
+    return;
+  }
+
+  AE::log error => "open %s: %s", $file, $!;
+  return;
+}
 
 =back
 
