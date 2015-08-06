@@ -15,7 +15,7 @@ our $VERSION = '0.001'; $VERSION = eval "$VERSION";
 
 =head1 NAME
 
-Local::OpenSSL::Conf - generate a script file to generate 
+Local::OpenSSL::Script::Revoke - generate a script file to generate 
 a certificate revocation file using the openssl utility.
 
 =cut
