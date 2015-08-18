@@ -6,7 +6,7 @@ use warnings;
 use Template;
 
 
-our $VERSION = '0.001'; $VERSION = eval "$VERSION";
+our $VERSION = '0.002'; $VERSION = eval "$VERSION";
 
 
 =pod
@@ -32,11 +32,18 @@ touch ${DATABASE} || exit 1
 echo 01 > ${CRLNUMBER}
 
 [% FOREACH clientCRT = CRTS -%]
-openssl ca -revoke [% clientCRT %] -keyfile [% CA_KEY %] -cert [% CA_CRT %] \
-  || exit 1
+openssl ca -config [% CONFIG_FILE %] \
+ -revoke [% clientCRT %] \
+ -keyfile [% CA_KEY %] \
+ -cert [% CA_CRT %] \
+|| exit 1
 [% END %]
-openssl ca -gencrl -keyfile [% CA_KEY %] -cert [% CA_CRT %] -out [% CRL_FILE %] \
-  || exit 1
+openssl ca -config [% CONFIG_FILE %] \
+ -gencrl \
+ -keyfile [% CA_KEY %] \
+ -cert [% CA_CRT %] \
+ -out [% CRL_FILE %] \
+|| exit 1
 
 exit 0
 EOF
@@ -52,6 +59,8 @@ Creates a Local::OpenSSL::Script::Revoke object. Accepts next
 arguments:
 
 =over
+
+=item * CONFIG_FILE
 
 =item * TARGET_DIRECTORY
 
@@ -78,13 +87,14 @@ sub new {
 
   my %args =
     (
-      'TARGET_DIRECTORY' => './',
-      'DATABASE_FILE' => 'index.txt',
-      'CRLNUMBER_FILE' => 'crlnumber',
-      'CRTS' => [ ],
-      'CA_KEY' => 'ca.key',
-      'CA_CRT' => 'ca.crt',
-      'CRL_FILE' => 'crl.pem',
+      'CONFIG_FILE'       => '/etc/ssl/openssl.conf',
+      'TARGET_DIRECTORY'  => './',
+      'DATABASE_FILE'     => 'index.txt',
+      'CRLNUMBER_FILE'    => 'crlnumber',
+      'CRTS'              => [ ],
+      'CA_KEY'            => 'ca.key',
+      'CA_CRT'            => 'ca.crt',
+      'CRL_FILE'          => 'crl.pem',
       map { +uc( $_ ) => $arg{ $_ } } keys %arg
     )
   ;
