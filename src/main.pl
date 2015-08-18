@@ -16,7 +16,7 @@ use File::Spec::Functions ();
 use File::Path ();
 
 
-$PROGRAM_NAME = "plcrtd"; $VERSION = '0.07';
+$PROGRAM_NAME = "plcrtd"; $VERSION = '0.08';
 
 
 my $retval = GetOptions
@@ -203,15 +203,24 @@ sub get_program_basedir() {
 
   if ( $0 eq '-e' ) {
     # staticperl fix
-    if ( $^O eq 'linux' ) {
-      $execp = &Cwd::abs_path( "/proc/self/exe" );
-    } else {
-      # TODO
-      # freebsd requires a XS module because of missing /proc
-      die "not implemented yet";
+    for ( $^O ) {
+      when ( 'linux' ) {
+        $execp = &Cwd::abs_path( "/proc/self/exe" );
+      }
+
+      when ( 'solaris' ) {
+        $execp = &Cwd::abs_path( "/proc/self/path/a.out" );
+      }
+
+      default {
+        # TODO
+        # * freebsd requires a XS module because of missing /proc
+        warn "Unable to detect program basedir correctly, using cwd()\n";
+        $execp = &Cwd::cwd();
+      }
     }
   }
-  
+
   my ( $vol, $dirs ) = &File::Spec::Functions::splitpath( $execp );
 
   return &Cwd::abs_path

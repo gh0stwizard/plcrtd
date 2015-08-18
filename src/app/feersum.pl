@@ -2060,9 +2060,6 @@ sub deploy($$$;$) {
     AE::log trace => "revoke.sh: %s", $sh_file;
     AE::log trace => &readfile( $sh_file );
 
-    #
-    # TODO
-    #
   }
 
 
