@@ -1,3 +1,4 @@
 * use templates instead of hardcoded commands as many as possible
 * finish "deploy" functionality
 * finish "export" functionality
+* use Config::Augeas to configure openssl utility (ah,ah, good? :]
