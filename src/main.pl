@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+# (c) 2015-2016, Vitaliy V. Tokarev aka gh0stwizard
 #
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
@@ -10,32 +10,36 @@ use strict;
 use common::sense;
 use vars qw( $PROGRAM_NAME $VERSION );
 use POSIX ();
-use Cwd ();
+use Cwd qw( cwd abs_path );
 use Getopt::Long qw( :config no_ignore_case bundling );
-use File::Spec::Functions ();
+use File::Spec::Functions qw( rel2abs catfile catpath splitpath );
 use File::Path ();
 
 
-$PROGRAM_NAME = "plcrtd"; $VERSION = '0.08';
+$PROGRAM_NAME = "plcrtd"; $VERSION = '0.09';
 
+
+my $STATICPERL = $0 eq '-e'; # staticperl check
+my $MODULESDIR = "modules";
+my $PR_BASEDIR = &get_program_basedir();
 
 my $retval = GetOptions
   (
     \my %options,
-    'help|h',             # print help page and exit
-    'version',            # print program version and exit
-    'debug',              # enables verbose logging
-    'verbose',            # enables very verbose logging
-    'pidfile|P=s',        # pid file ( optional )
-    'home|H=s',           # chdir to home directory before fork
+    'help|h|?',           # print help page and exit
+    'version|V',          # print program version and exit
+    'debug|d',            # enables verbose logging
+    'verbose|v',          # enables very verbose logging
+    'pidfile|P=s',        # pid file <optional>
+    'home|H=s',           # chdir to home directory before fork()
     'background|B',       # run in background
-    'logfile|L=s',        # log file ( optional )
+    'logfile|L=s',        # log file <optional>
     'enable-syslog',      # enable logging via syslog
     'syslog-facility=s',  # syslog facility
     'quiet|q',            # enable silence mode (no log at all)
     'listen|l=s',         # listen on IP:PORT
-    'backend|b=s',        # backend: feersum
-    'app|a=s',            # application file
+    'backend|b=s',        # backend file: feersum
+    'app|a=s',            # application file: feersum
     'work-dir|W=s',       # working directory
     'deploy-dir|D=s',     # deploy directory
   )
@@ -43,7 +47,7 @@ my $retval = GetOptions
 
 local $\ = "\n";
 
-if ( defined $retval and !$retval ) {
+if ( defined ($retval) and ! $retval ) {
   # unknown option workaround for GetOpt::Long module
   print "Use --help for help";
   exit 1;
@@ -61,38 +65,34 @@ exit 0;
 
 # ---------------------------------------------------------------------
 
-
 #
-# Adds modules path to @INC when needed.
+# set_modules_path: adds modules path to @INC when needed.
 #
 sub set_modules_path() {
-  if ( $0 ne '-e' ) {
-    # Fix for modules. Perl is able now loading program-specific
-    # modules from directory where file main.pl is placed w/o "use lib".
-    my $basedir = &get_program_basedir();
-    my $mod_dir = "modules";
-    unshift @INC, &File::Spec::Functions::rel2abs( $mod_dir, $basedir );
+  if ( ! $STATICPERL ) {
+    # instead of "use lib" ...
+    unshift @INC, rel2abs ($MODULESDIR, $PR_BASEDIR);
   }
 
   return;
 }
 
 #
-# main subroutine
+# run_program: perform all neccessary steps to run main 
 #
 sub run_program() {
   &set_default_options();
   &set_default_paths();
-  &set_abs_paths();
-  &set_env();
+  &set_abs_paths();         # resolve absolute paths to values
+  &set_env();               # setup environment vars
   &set_logger();
   &check_pidfile();
   &daemonize();
-  &xrun();
+  &run_script();            # run target script
 }
 
 #
-# fork the process
+# daemonize: fork the process
 #
 sub daemonize() {
   exists $options{ 'background' } or return;
@@ -114,13 +114,13 @@ sub daemonize() {
 }
 
 #
-# Starts a rest major part of the program
+# run_script: starts a rest major part of the program
 #
-sub xrun() {
+sub run_script() {
   my $rv;
   my $file = $options{ 'backend' };
   
-  if ( $rv = do $file ) {
+  if ( $rv = do ($file) ) {
     return;
   }
 
@@ -130,7 +130,7 @@ sub xrun() {
     die "Couldn't parse $file:$\$@";
   }
 
-  if ( $! and ! defined $rv ) {
+  if ( $! and ! defined ($rv) ) {
     die "Couldn't do $file: $!";
   }
 
@@ -140,17 +140,18 @@ sub xrun() {
 }
 
 #
-# if pidfile exists throw error and exit
+# check_pidfile: if a pidfile exists throw an error and exit
 #
 sub check_pidfile() {
-  $options{ 'pidfile' } || return;
-  -f $options{ 'pidfile' } || return;
+  $options{ 'pidfile' }     || return;
+  -f $options{ 'pidfile' }  || return;
   printf "pidfile %s: file exists\n", $options{ 'pidfile' };
   exit 1;
 }
 
 #
-# sets relative paths for files and adds extention to file names
+# set_default_paths: setup relative paths for files and adds 
+# an extention to the their file names
 #
 sub set_default_paths() {
   my $file_ext = 'pl';
@@ -162,33 +163,20 @@ sub set_default_paths() {
     )
   ;
 
-  if ( $0 eq '-e' ) {
+  if ( $STATICPERL ) {
     # staticperl uses relative paths (vfs)
     for my $option ( keys %relpaths ) {
       my $relpath = $relpaths{ $option };
       my $filename = join '.', $options{ $option }, $file_ext;
 
-      $options{ $option } = &File::Spec::Functions::catfile
-        (
-          $relpath,
-          $filename,
-        )
-      ;
+      $options{ $option } = catfile ($relpath, $filename, );
     }
   } else {
-    my $basedir = &get_program_basedir();
-    
     for my $option ( keys %relpaths ) {
       my $relpath = $relpaths{ $option };
       my $filename = join '.', $options{ $option }, $file_ext;
 
-      $options{ $option } = &File::Spec::Functions::catfile
-        (
-          $basedir,
-          $relpath,
-          $filename,
-        )
-      ;
+      $options{ $option } = catfile ($PR_BASEDIR, $relpath, $filename, );
     }
   }
   
@@ -196,42 +184,29 @@ sub set_default_paths() {
 }
 
 #
-# returns basedir of the program
+# get_program_basedir: returns basedir of the program
 #
 sub get_program_basedir() {
   my $execp = $0;
 
-  if ( $0 eq '-e' ) {
-    # staticperl fix
-    for ( $^O ) {
-      when ( 'linux' ) {
-        $execp = &Cwd::abs_path( "/proc/self/exe" );
-      }
+  if ( $STATICPERL ) {
+    $execp = $^X;
+  }
 
-      when ( 'solaris' ) {
-        $execp = &Cwd::abs_path( "/proc/self/path/a.out" );
-      }
-
-      default {
-        # TODO
-        # * freebsd requires a XS module because of missing /proc
-        warn "Unable to detect program basedir correctly, using cwd()\n";
-        $execp = &Cwd::cwd();
-      }
+  for ( $^O ) {
+    when ( 'openbsd' ) {
+      # XXX
+      warn "Unable to detect the program base directory correctly!";
+      $execp = cwd ();
     }
   }
 
-  my ( $vol, $dirs ) = &File::Spec::Functions::splitpath( $execp );
-
-  return &Cwd::abs_path
-    (
-      &File::Spec::Functions::catpath( $vol, $dirs, "" )
-    )
-  ;
+  my ( $vol, $dirs ) = splitpath ($execp);
+  return abs_path (catpath ($vol, $dirs, ""));
 }
 
 #
-# use realpath always
+# set_abs_paths: resolves absolute paths for the option values
 #
 sub set_abs_paths() {
   my @pathopts = qw
@@ -247,28 +222,29 @@ sub set_abs_paths() {
   my $umask = 0750;
   for my $option ( @pathopts ) {
     exists $options{ $option } or next;
-
     my $path = $options{ $option };
+
     # naive but simple
     if ( ! &File::Spec::Functions::file_name_is_absolute( $path ) ) {
-      my $cwd = &Cwd::cwd();
-      $path = &File::Spec::Functions::catdir( $cwd, $path );
-      $path = &File::Spec::Functions::rel2abs( $path );
+      $path = &File::Spec::Functions::catdir( cwd (), $path );
+      $path = rel2abs ( $path );
     }
     
-    if ( -e $path ) {
-      $options{ $option } = &Cwd::abs_path( $path );
-    } else {
-      # stupid Cwd calls carp() when path does not exists
-      # and returns nothing!
+    if ( ! -e $path ) {
+      # stupid Cwd::abs_path() calls carp() when the path is not exists
+      # and returns nothing
       &File::Path::make_path( $path, { mode => $umask } );
-      $options{ $option } = &Cwd::abs_path( $path );
     }
+
+    $options{ $option } = abs_path ($path);
   }
 
   return;
 }
 
+#
+# set_default_options: setup default values for specified options
+#
 sub set_default_options() {
   my %defaultmap =
     (
@@ -289,7 +265,7 @@ sub set_default_options() {
 }
 
 #
-# use environment variables to exchange between main & child
+# set_env: use environment variables to exchange between main & child
 #
 sub set_env() {
   my $prefix = uc( $PROGRAM_NAME );
@@ -312,14 +288,13 @@ sub set_env() {
   }
   
   # set basedir
-  my $key = join( '_', $prefix, 'BASEDIR' );
-  $ENV{ $key } = &get_program_basedir();
+  $ENV{ join ('_', $prefix, 'BASEDIR') } = $PR_BASEDIR;
 
   return;
 }
 
 #
-# We're using AE::Log logger, see 'perldoc AnyEvent::Log' for details.
+# set_logger: AE::Log logger setup; see 'perldoc AnyEvent::Log' for details.
 # Logger is configured via environment variables.
 #
 sub set_logger() {
@@ -356,8 +331,8 @@ sub set_logger() {
   }
 
   if ( exists $options{ 'background' } ) {
-    # disables logging when running in background
-    # and are not using logfile or syslog
+    # disables logging when running in the background mode
+    # and are not using a logfile or the syslog
     unless ( exists $options{ 'logfile' }
           || exists $options{ 'enable-syslog' } )
     {
@@ -375,7 +350,7 @@ sub set_logger() {
       #   "use AnyEvent(::Util)";
       " ",
       $suppress,
-      join( ":", $loglevel, $output ),
+      join (":", $loglevel, $output),
     )
   ;
 
@@ -383,15 +358,15 @@ sub set_logger() {
 }
 
 #
-# prints help page to stdout
+# print_help: prints help page to stdout
 #
 sub print_help() {
   print "Allowed options:";
 
   my $h = "  %-24s %-48s" . $\;
 
-  printf $h, "--help [-h]", "prints this information";
-  printf $h, "--version", "prints program version";
+  printf $h, "--help [-h|-?]", "prints this information";
+  printf $h, "--version [-V]", "prints program version";
   
   print;
   print "Web server options:";
@@ -412,8 +387,8 @@ sub print_help() {
 
   print "Logging options:";
   
-  printf $h, "--debug", "be verbose";
-  printf $h, "--verbose", "be very verbose";
+  printf $h, "--debug [-d]", "be verbose";
+  printf $h, "--verbose [-v]", "be very verbose";
   printf $h, "--quiet [-q]", "disables logging totally";
   printf $h, "--enable-syslog", "enable logging via syslog";
   printf $h, "--syslog-facility arg", "syslog's facility (default is LOG_DAEMON)";
@@ -427,9 +402,12 @@ sub print_help() {
   printf $h, "--app [-a] arg", "application name (default: feersum)";
 }
 
+#
+# print_version: prints a version of the program
+#
 sub print_version() {
   printf "%s version %s%s",
-    ( &File::Spec::Functions::splitpath( $PROGRAM_NAME ) )[2],
+    ( splitpath ($PROGRAM_NAME) )[2],
     $VERSION,
     $\,
   ;
@@ -450,17 +428,17 @@ plcrtd [-L logfile | --enable-syslog ] [-P pidfile]
 
 =head1 DESCRIPTION
 
-Provides a service to generating OpenSSL certificates.
+Provides a web service to managing of OpenSSL certificates.
 
 =head1 OPTIONS
 
 =over
 
-=item --B<help>, -B<h>
+=item --B<help>, -B<h>, -B<?>
 
 Prints help information to I<stdout>.
 
-=item --B<version>
+=item --B<version>, -B<V>
 
 Prints version information to I<stdout>.
 
@@ -514,11 +492,11 @@ will keep deployed certificates and private keys.
 
 =over
 
-=item --B<debug>
+=item --B<debug>, -B<d>
 
 Be verbose.
 
-=item --B<verbose>
+=item --B<verbose>, -B<v>
 
 Be very verbose.
 
@@ -577,7 +555,7 @@ Vitaliy V. Tokarev E<lt>vitaliy.tokarev@gmail.comE<gt>
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-2015, gh0stwizard
+(c) 2015-2016, Vitaliy V. Tokarev
 
 This is free software; you can redistribute it and/or modify it
 under the same terms as the Perl 5 programming language system itself.

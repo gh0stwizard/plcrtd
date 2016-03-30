@@ -8,7 +8,7 @@ written in [Perl](http://www.perl.org).
 Just for fun. The possible usecases:
 
 * Personal usage
-* Internal usage inside a company
+* Internal usage inside of a company
 
 # Dependencies #
 
@@ -33,7 +33,7 @@ The program is splitted in three major parts:
 * backend: <code>backend/feersum.pl</code>
 * application: <code>app/feersum.pl</code>
 
-To start the program type in console:
+To start the program type in a console:
 
 ```
 shell> perl src/main.pl
@@ -41,7 +41,7 @@ shell> perl src/main.pl
 
 By default the server is listening on the address <code>127.0.0.1:28980</code>.
 To run the listener on all interfaces and addresses you have to run
-the server as described below:
+the server like described below:
 
 ```
 shell> perl src/main.pl --listen 0.0.0.0:28980
@@ -88,8 +88,8 @@ The sample configuration file for nginx is placed in
 # Security #
 
 You have to install HTTPS server, e.g. nginx, and set up it as a frontend
-for this application. Because of the Feersum module, 
-the embeded HTTP server, it does not working with HTTPS.
+to this application. Because of the **Feersum** module (an embedded HTTP 
+server) does not working with HTTPS.
 
 Due the limitation above you are unable to use **plcrtd** without
 HTTP(S) frontend server, sorry.
