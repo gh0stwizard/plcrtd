@@ -31,6 +31,7 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MCarp \
 -MEncode \
 -Mcommon::sense \
+-MEnv \
 -MEV \
 -MGuard \
 -MAnyEvent \
@@ -60,4 +61,6 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 --add "../src/modules/Local/DB/UnQLite.pm Local/DB/UnQLite.pm" \
 --add "../src/modules/Local/OpenSSL/Conf.pm Local/OpenSSL/Conf.pm" \
 --add "../src/modules/Local/OpenSSL/Script/Revoke.pm Local/OpenSSL/Script/Revoke.pm" \
+--add "../src/modules/Local/Server/Hooks.pm Local/Server/Hooks.pm" \
+--add "../src/modules/Local/Server/Settings.pm Local/Server/Settings.pm" \
 $@
