@@ -1,0 +1,12 @@
+Compile and run under staticperl environment:
+
+shell> pwd
+/path/to/git/repo/plcrtd
+shell> cd misc
+shell> sh make-run.sh
+
+OR
+
+shell> cd misc
+shell> sh static.sh
+shell> ./bin/plcrtd --help
