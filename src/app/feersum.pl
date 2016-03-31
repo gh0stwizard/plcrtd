@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+# (c) 2015-2016, Vitaliy V. Tokarev aka gh0stwizard
 #
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
@@ -12,16 +12,13 @@
 
 =head1 NAME
 
-The application for the Feersum.
-
-A modification for the plcrtd project.
+The application for the Feersum: B<plcrtd> project.
 
 =cut
 
 
 use strict;
 use common::sense;
-use vars qw( $PROGRAM_NAME );
 use AnyEvent;
 use AnyEvent::Util;
 use HTTP::Body ();
@@ -37,11 +34,11 @@ use Local::OpenSSL::Script::Revoke;
 
 
 # body checks
-my $MIN_BODY_SIZE = 4;
-my $MAX_BODY_SIZE = 524288;
+sub MIN_BODY_SIZE() { 4 };
+sub MAX_BODY_SIZE() { 524288 };
 
 # read buffer size
-my $RDBUFFSIZE = 32 * 1024;
+sub RDBUFFSIZE()    { 32 * 1024 };
 
 # http headers for responses
 my @HEADER_JSON = ( 'Content-Type' => 'application/json; charset=UTF-8' );
@@ -68,14 +65,14 @@ my %DIGESTS =
 =cut
 
 
-sub CONNECTION_ERROR  { 0 } # Connection error
-sub BAD_REQUEST       { 1 } # Bad request
-sub NOT_IMPLEMENTED   { 2 } # Not implemented
-sub EINT_ERROR        { 3 } # Internal error
-sub INVALID_NAME      { 4 } # Invalid entry name
-sub DUPLICATE_ENTRY   { 5 } # Duplicate entry
-sub ENTRY_NOTFOUND    { 6 } # Entry not found
-sub MISSING_DATABASE  { 7 } # Missing target database name
+sub NO_ERROR()          { 0 };
+sub BAD_REQUEST()       { 1 };
+sub NOT_IMPLEMENTED()   { 2 };
+sub INTERNAL_ERROR()    { 3 };
+sub INVALID_NAME()      { 4 }; # Invalid entry name
+sub DUPLICATE_ENTRY()   { 5 };
+sub ENTRY_NOT_FOUND()   { 6 };
+sub MISSING_DATABASE()  { 7 }; # Missing target database name
 
 
 =item B<app>( $request )
@@ -89,29 +86,23 @@ request object $request.
 sub app {
   my ( $R ) = @_;
 
+
   my $env = $R->env();
-  my $method = $env->{ 'REQUEST_METHOD' };
 
-  if ( $method eq 'POST' ) {
-
-    &do_post( $R, 
-      @$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) } );
-
-  } elsif ( $method eq 'GET' ) {
-    # plcrtd does not using GET method
-    _501( $R );
-
-  } else {
-    # unsupported method means 'cya!'
-    _405( $R );
-
-  }
+  $env->{ 'REQUEST_METHOD' } eq 'POST'
+    ? &process_request
+      (
+        $R,
+        @$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) },
+      )
+    : _405( $R )
+  ;
 
   return;
 }
 
 
-=item B<get_params>( $request, $length, $content_type )
+=item $params_h = B<get_params>( $request, $length, $content_type )
 
 Reads HTTP request body. Returns hash reference with request parameters.
 A key represents a name of parameter and it's value represents an actual value.
@@ -122,8 +113,9 @@ A key represents a name of parameter and it's value represents an actual value.
 sub get_params($$$) {
   my ( $r, $len, $content_type ) = @_;
 
+
   # reject empty, small or very big requests
-  ( ( $len < $MIN_BODY_SIZE ) || ( $len > $MAX_BODY_SIZE ) )
+  ( ( $len < &MIN_BODY_SIZE() ) || ( $len > &MAX_BODY_SIZE() ) )
     and return;
 
   my $body = HTTP::Body->new( $content_type, $len );
@@ -131,7 +123,7 @@ sub get_params($$$) {
   $body->cleanup( 1 );
 
   my $pos = 0;
-  my $chunk = ( $len > $RDBUFFSIZE ) ? $RDBUFFSIZE : $len;
+  my $chunk = ( $len > &RDBUFFSIZE() ) ? &RDBUFFSIZE() : $len;
 
   while ( $pos < $len ) {
     $r->read( my $buf, $chunk ) or last;
@@ -147,7 +139,7 @@ sub get_params($$$) {
   my $result = $body->param();
   my $files = $body->upload();
   
-  for my $param ( keys %$files ) {
+  for my $param ( keys %{ $files } ) {
     if ( exists $result->{ $param } ) {
       AE::log alert => "duplicate parameter %s", $param;
       next;
@@ -157,7 +149,7 @@ sub get_params($$$) {
 #    my $size = $files->{ $param }{ 'size' };
 
     if ( open( my $fh, "<", $file ) ) {
-      $result->{ $param } = do { local $/; <$fh> };
+      $result->{ $param } = do { local $/; <$fh> }; # XXX
       close( $fh );
     } else {
       AE::log error => "open %s: %s", $file, $!;
@@ -168,17 +160,17 @@ sub get_params($$$) {
 }
 
 
-=item $json = B<do_post>( $feersum, $request, $length, $content_type )
+=item $json = B<process_request>( $feersum, $request, $length, $content_type )
 
-Process a POST request.
+Process a request (POST).
 
 =cut
 
 
-sub do_post($$$$) {
+sub process_request($$$$) {
   my $R = shift;
-  my $params = &get_params( @_ )
-    or &send_error( $R, &BAD_REQUEST() ), return;
+  my $params = &get_params (@_)
+    or return &send_error ($R, &BAD_REQUEST());
 
 
   my $action = delete $params->{ 'action' } || '';
@@ -419,9 +411,9 @@ Currently implemented error codes:
 
 =over
 
-=item 0 CONNECTION_ERROR
+=item 0 NO_ERROR
 
-Connection error on a server side occurs.
+There is no any error.
 
 =item 1 BAD_REQUEST
 
@@ -431,7 +423,7 @@ Bad request from a client.
 
 Requested service is not implemented yet.
 
-=item 3 EINT_ERROR
+=item 3 INTERNAL_ERROR
 
 Some sort of an internal error has occurs on a server side.
 
@@ -443,7 +435,7 @@ Invalid name. Usually, name is a key in a database.
 
 Duplicate entry in a database.
 
-=item 6 ENTRY_NOTFOUND
+=item 6 ENTRY_NOT_FOUND
 
 An entry not found in a database.
 
@@ -459,12 +451,13 @@ The target database name was not found.
 sub send_error($$;$) {
   my ( $R, $code, $msg ) = @_;
 
-  my %data = ( err => $code );
-  $data{ 'msg' } = decode_utf8( $msg ) if ( $msg );
 
-  my $w = $R->start_streaming( 200, \@HEADER_JSON );
-  $w->write( encode_json( \%data ) );
-  $w->close();
+  my %data = ( err => $code );
+  $data{ 'msg' } = decode_utf8 ($msg) if ( $msg );
+
+  my $w = $R->start_streaming (200, \@HEADER_JSON);
+  $w->write (encode_json (\%data));
+  $w->close ();
 
   return;
 }
@@ -579,7 +572,7 @@ sub genkey($$$$;$$) {
 
     # check if command executed successfully
     shift->recv()
-      and return &send_error( $R, &EINT_ERROR(), $stderr );
+      and return &send_error( $R, &INTERNAL_ERROR(), $stderr );
 
     # find out a database name to store result
     my $maindb = Local::DB::UnQLite->new( '__db__' );
@@ -611,7 +604,7 @@ sub genkey($$$$;$$) {
 
     $db->store( $pkeyname, encode_json( \%data ) )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } );
 
   return;
@@ -692,13 +685,13 @@ sub create_db($$$) {
   if ( not $dbs->fetch( $name ) ) {
     my %data = ( name => $name, desc => $desc );
     $dbs->store( $name, encode_json( \%data ) )
-      or return &send_error( $R, &EINT_ERROR() );
+      or return &send_error( $R, &INTERNAL_ERROR() );
 
     # set initial serial number for certificates
     my $db = Local::DB::UnQLite->new( $name );
     $db->store( 'serial', 1 )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR(), 'store serial' );
+      : &send_error( $R, &INTERNAL_ERROR(), 'store serial' );
   } else {
     &send_error( $R, &DUPLICATE_ENTRY() );
     return;
@@ -738,9 +731,9 @@ sub remove_db($$) {
 
     $dbs->delete( $name )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } else {
-    &send_error( $R, &ENTRY_NOTFOUND() );
+    &send_error( $R, &ENTRY_NOT_FOUND() );
     return;
   }
 
@@ -772,9 +765,9 @@ sub update_db($$$) {
     $data->{ 'desc' } = $desc;
     $dbs->store( $name, encode_json( $data ) )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } else {
-    &send_error( $R, &ENTRY_NOTFOUND() );
+    &send_error( $R, &ENTRY_NOT_FOUND() );
     return;
   }
 
@@ -813,9 +806,9 @@ sub switch_db($$) {
   if ( $dbs->fetch( $name ) ) {
     $dbs->store( '_', $name )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } else {
-    &send_error( $R, &ENTRY_NOTFOUND() );
+    &send_error( $R, &ENTRY_NOT_FOUND() );
     return;
   }
 
@@ -841,7 +834,7 @@ sub current_db($) {
   if ( my $name = $dbs->fetch( '_' ) ) {
     &send_response( $R, 'name', $name );
   } else {
-    &send_error( $R, &ENTRY_NOTFOUND() );
+    &send_error( $R, &ENTRY_NOT_FOUND() );
     return;
   }
 
@@ -860,12 +853,10 @@ sub list_dbs($) {
   my ( $R ) = @_;
 
 
-  my $dbs = Local::DB::UnQLite->new( '__db__' );
-  my $all = $dbs->all_json_except( '_' );
+  my $dbs = Local::DB::UnQLite->new ('__db__');
+  my $all = $dbs->all_json_except ('_');
 
-  &send_response( $R, 'dbs', $all );
-
-  return;
+  &send_response ($R, 'dbs', $all);
 }
 
 
@@ -880,14 +871,14 @@ sub remove_all_dbs($) {
   my ( $R ) = @_;
 
 
-  my $dbs = Local::DB::UnQLite->new( '__db__' );
+  my $dbs = Local::DB::UnQLite->new ('__db__');
   my @keys = $dbs->keys();
   my $num = $dbs->delete_all();
 
-  &Local::DB::UnQLite::closealldb();
-  &Local::DB::UnQLite::deletedb( $_ ) for @keys;
+  &Local::DB::UnQLite::closealldb ();
+  &Local::DB::UnQLite::deletedb ($_) for @keys;
 
-  &send_response( $R, 'deleted', $num );
+  &send_response ($R, 'deleted', $num);
 }
 
 
@@ -987,11 +978,11 @@ sub remove_key($$) {
   my $kv = 'key_' . $name;
 
   $db->fetch( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND() );
+    or return &send_error( $R, &ENTRY_NOT_FOUND() );
 
   $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
-    : &send_error( $R, &EINT_ERROR() );
+    : &send_error( $R, &INTERNAL_ERROR() );
 }
 
 
@@ -1127,10 +1118,10 @@ sub gencsr($$%) {
   my $db = Local::DB::UnQLite->new( $dbname );
   my $kv = 'key_' . $options{ 'keyname' };
   my $entry = $db->fetch_json( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND() );
+    or return &send_error( $R, &ENTRY_NOT_FOUND() );
 
   my $keyin = $entry->{ 'out' }
-    or return &send_error( $R, &EINT_ERROR(), "key out");
+    or return &send_error( $R, &INTERNAL_ERROR(), "key out");
   push @fdsetup, "3<", \$keyin;
 
 
@@ -1141,7 +1132,7 @@ sub gencsr($$%) {
 
     # check if command executed successfully
     shift->recv()
-      and return &send_error( $R, &EINT_ERROR(), $stderr );
+      and return &send_error( $R, &INTERNAL_ERROR(), $stderr );
 
     # find out a database name to store result
     my $maindb = Local::DB::UnQLite->new( '__db__' );
@@ -1173,7 +1164,7 @@ sub gencsr($$%) {
 
     $db->store( $csrname, encode_json( \%data ) )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } );
 
   return;
@@ -1230,11 +1221,11 @@ sub remove_csr($$) {
   my $kv = 'csr_' . $name;
 
   $db->fetch( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND() );
+    or return &send_error( $R, &ENTRY_NOT_FOUND() );
 
   $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
-    : &send_error( $R, &EINT_ERROR() );
+    : &send_error( $R, &INTERNAL_ERROR() );
 }
 
 
@@ -1409,7 +1400,7 @@ sub gencrt($$%) {
 
   # + set_serial
   my $serial = $db->fetch( 'serial' )
-    or return &send_error( $R, &EINT_ERROR(), 'missing serial' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'missing serial' );
   push @command, '-set_serial', $serial;
 
 
@@ -1418,35 +1409,35 @@ sub gencrt($$%) {
     # -in csr
     my $kv_csr = 'csr_' . $params{ 'csrname' };
     my $csr = $db->fetch_json( $kv_csr )
-      or return &send_error( $R, &ENTRY_NOTFOUND() );
+      or return &send_error( $R, &ENTRY_NOT_FOUND() );
     my $csrin = $csr->{ 'out' }
-      or return &send_error( $R, &EINT_ERROR(), "missing csr" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "missing csr" );
     push @fdsetup, "4<", \$csrin;
 
     # -CA
     my $kv_ca_crt = 'crt_' . $params{ 'cacrt' };
     my $crt = $db->fetch_json( $kv_ca_crt )
-      or return &send_error( $R, &ENTRY_NOTFOUND() );
+      or return &send_error( $R, &ENTRY_NOT_FOUND() );
     my $crtin = $crt->{ 'out' }
-      or return &send_error( $R, &EINT_ERROR(), "missing ca crt" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "missing ca crt" );
     push @fdsetup, "5<", \$crtin;
 
     # -CAkey
     my $kv_ca_key = 'key_' . $params{ 'cakey' };
     my $key = $db->fetch_json( $kv_ca_key )
-      or return &send_error( $R, &ENTRY_NOTFOUND() );
+      or return &send_error( $R, &ENTRY_NOT_FOUND() );
     my $keyin = $key->{ 'out' }
-      or return &send_error( $R, &EINT_ERROR(), "missing ca key" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "missing ca key" );
     push @fdsetup, "6<", \$keyin;
 
   } else {
     # -key
     my $kv = 'key_' . $params{ 'keyname' };
     my $key = $db->fetch_json( $kv )
-      or return &send_error( $R, &ENTRY_NOTFOUND(), 'invalid keyname?' );
+      or return &send_error( $R, &ENTRY_NOT_FOUND(), 'invalid keyname?' );
 
     my $keyin = $key->{ 'out' }
-      or return &send_error( $R, &EINT_ERROR(), "missing key" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "missing key" );
 
     push @fdsetup, "4<", \$keyin;
   }
@@ -1458,7 +1449,7 @@ sub gencrt($$%) {
 
     # check if command executed successfully
     shift->recv()
-      and return &send_error( $R, &EINT_ERROR(), $stderr );
+      and return &send_error( $R, &INTERNAL_ERROR(), $stderr );
 
     # find out a database name to store result
     my $maindb = Local::DB::UnQLite->new( '__db__' );
@@ -1501,11 +1492,11 @@ sub gencrt($$%) {
     }
 
     $db->store( 'serial', ++$serial )
-      or return &send_error( $R, &EINT_ERROR(), 'store serial' );
+      or return &send_error( $R, &INTERNAL_ERROR(), 'store serial' );
 
     $db->store( $kv, encode_json( \%data ) )
       ? &send_response( $R, 'name', $name )
-      : &send_error( $R, &EINT_ERROR() );
+      : &send_error( $R, &INTERNAL_ERROR() );
   } );
 
   return;
@@ -1562,22 +1553,22 @@ sub remove_crt($$) {
   my $kv = 'crt_' . $name;
 
   my $entry = $db->fetch_json( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND(), 'fetch kv' );
+    or return &send_error( $R, &ENTRY_NOT_FOUND(), 'fetch kv' );
   my $this_serial = $entry->{ 'serial' }
-    or return &send_error( $R, &EINT_ERROR(), 'invalid serial' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'invalid serial' );
 
   # descrease serial number if removing last inserted entry
   my $serial = $db->fetch( 'serial' )
-    or return &send_error( $R, &EINT_ERROR(), 'fetch serial' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'fetch serial' );
 
   if ( $serial - $this_serial == 1 ) {
     $db->store( 'serial', $this_serial )
-      or return &send_error( $R, &EINT_ERROR(), 'store serial' );
+      or return &send_error( $R, &INTERNAL_ERROR(), 'store serial' );
   }
 
   $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
-    : &send_error( $R, &EINT_ERROR() );
+    : &send_error( $R, &INTERNAL_ERROR() );
 }
 
 
@@ -1605,7 +1596,7 @@ sub remove_all_crts($) {
   # reset serial
   $db->store( 'serial', 1 )
     ? &send_response( $R, 'deleted', $num )
-    : &send_error( $R, &EINT_ERROR(), 'store serial' );
+    : &send_error( $R, &INTERNAL_ERROR(), 'store serial' );
 }
 
 
@@ -1666,7 +1657,7 @@ sub create_crl($$%) {
 
   $db->store( $kv, encode_json( \%data ) )
     ? &send_response( $R, 'name', $name )
-    : &send_error( $R, &EINT_ERROR() );
+    : &send_error( $R, &INTERNAL_ERROR() );
 }
 
 
@@ -1735,11 +1726,11 @@ sub remove_crl($$) {
   my $kv = 'crl_' . $name;
 
   $db->fetch( $kv )
-    or return &send_error( $R, &ENTRY_NOTFOUND() );
+    or return &send_error( $R, &ENTRY_NOT_FOUND() );
 
   $db->delete( $kv )
     ? &send_response( $R, 'name', $name )
-    : &send_error( $R, &EINT_ERROR() );
+    : &send_error( $R, &INTERNAL_ERROR() );
 }
 
 
@@ -1792,7 +1783,7 @@ sub get_serial($) {
 
   defined $serial
     ? &send_response( $R, 'serial', $serial )
-    : &send_error( $R, &EINT_ERROR(), 'invalid serial' );
+    : &send_error( $R, &INTERNAL_ERROR(), 'invalid serial' );
 }
 
 
@@ -1827,10 +1818,10 @@ sub add_crt_to_crl($$$) {
 
   my $db = Local::DB::UnQLite->new( $dbname );
   my $crl = $db->fetch_json( 'crl_' . $crl_name )
-    or return &send_error( $R, &EINT_ERROR(), 'crl is missing' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'crl is missing' );
 
   my $crt = $db->fetch_json( 'crt_' . $crt_name )
-    or return &send_error( $R, &EINT_ERROR(), 'crt is missing' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'crt is missing' );
 
 
   if ( ref $crt->{ 'incrl' } eq 'ARRAY' ) {
@@ -1839,7 +1830,7 @@ sub add_crt_to_crl($$$) {
     my %crls = map { +"$_" => 1 } @{ $list };
 
     if ( exists $crls{ $crl_name } ) {
-      &send_error( $R, &EINT_ERROR(), 'already added to this CRL' );
+      &send_error( $R, &INTERNAL_ERROR(), 'already added to this CRL' );
       return;
     }
 
@@ -1856,7 +1847,7 @@ sub add_crt_to_crl($$$) {
   # update record
   $db->store( 'crt_' . $crt_name, encode_json( $crt ) )
     ? &send_response( $R, 'name', $crt_name )
-    : &send_error( $R, &EINT_ERROR(), 'failed to store crt' );
+    : &send_error( $R, &INTERNAL_ERROR(), 'failed to store crt' );
 }
 
 
@@ -1891,10 +1882,10 @@ sub remove_crt_from_crl($$$) {
 
   my $db = Local::DB::UnQLite->new( $dbname );
   my $crl = $db->fetch_json( 'crl_' . $crl_name )
-    or return &send_error( $R, &EINT_ERROR(), 'crl is missing' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'crl is missing' );
 
   my $crt = $db->fetch_json( 'crt_' . $crt_name )
-    or return &send_error( $R, &EINT_ERROR(), 'crt is missing' );
+    or return &send_error( $R, &INTERNAL_ERROR(), 'crt is missing' );
 
 
   if ( ref $crt->{ 'incrl' } eq 'ARRAY' ) {
@@ -1906,7 +1897,7 @@ sub remove_crt_from_crl($$$) {
       delete $crls{ $crl_name };
       @$list = keys %crls;
     } else {
-      &send_error( $R, &EINT_ERROR(), 'crl not found' );
+      &send_error( $R, &INTERNAL_ERROR(), 'crl not found' );
       return;
     }
 
@@ -1919,7 +1910,7 @@ sub remove_crt_from_crl($$$) {
   # update record
   $db->store( 'crt_' . $crt_name, encode_json( $crt ) )
     ? &send_response( $R, 'name', $crt_name )
-    : &send_error( $R, &EINT_ERROR(), 'failed to store crt' );
+    : &send_error( $R, &INTERNAL_ERROR(), 'failed to store crt' );
 }
 
 
@@ -1951,7 +1942,7 @@ sub deploy($$$;$) {
   } else {
     AE::log debug => "creating directory \`%s\'", $dir;
     mkdir ( $dir, 0700 )
-      or return &send_error( $R, &EINT_ERROR(), "mkdir $dir: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "mkdir $dir: $!" );
   }
 
   my $maindb = Local::DB::UnQLite->new( '__db__' );
@@ -1976,11 +1967,11 @@ sub deploy($$$;$) {
     my $filename = catfile( $dir, join( '.', $key->{ 'name' }, 'key' ) );
 
     open( my $fh, ">:raw", $filename )
-      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "open $filename: $!" );
     syswrite( $fh, $key->{ 'out' } )
-      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "write $filename: $!" );
     close( $fh )
-      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "close $filename: $!" );
 
     push @keys_files, $filename;
     AE::log debug => "created key file: %s", $filename;
@@ -1991,11 +1982,11 @@ sub deploy($$$;$) {
     my $filename = catfile( $dir, join( '.', $csr->{ 'name' }, 'csr' ) );
 
     open( my $fh, ">:raw", $filename )
-      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "open $filename: $!" );
     syswrite( $fh, $csr->{ 'out' } )
-      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "write $filename: $!" );
     close( $fh )
-      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "close $filename: $!" );
 
     push @csrs_files, $filename;
     AE::log debug => "created CSR file: %s", $filename;
@@ -2007,11 +1998,11 @@ sub deploy($$$;$) {
     my $filename = catfile( $dir, join( '.', $crt->{ 'name' }, 'crt' ) );
 
     open( my $fh, ">:raw", $filename )
-      or return &send_error( $R, &EINT_ERROR(), "open $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "open $filename: $!" );
     syswrite( $fh, $crt->{ 'out' } )
-      or return &send_error( $R, &EINT_ERROR(), "write $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "write $filename: $!" );
     close( $fh )
-      or return &send_error( $R, &EINT_ERROR(), "close $filename: $!" );
+      or return &send_error( $R, &INTERNAL_ERROR(), "close $filename: $!" );
 
     push @crts_files, $filename;
     AE::log debug => "created CRT file: %s", $filename;
@@ -2041,7 +2032,7 @@ sub deploy($$$;$) {
 
     my $cfg = Local::OpenSSL::Conf->new( target_directory => $dir );
     my $cfg_file = $cfg->generate()
-      or return &send_error( $R, &EINT_ERROR(), $cfg->error() );
+      or return &send_error( $R, &INTERNAL_ERROR(), $cfg->error() );
 
     AE::log trace => "openssl.conf: %s", $cfg_file;
     AE::log trace => &readfile( $cfg_file );
@@ -2055,7 +2046,7 @@ sub deploy($$$;$) {
         'config_file'       => $cfg_file,
     ;
     my $sh_file = $sh->generate()
-      or return &send_error( $R, &EINT_ERROR(), $sh->error() );
+      or return &send_error( $R, &INTERNAL_ERROR(), $sh->error() );
 
     AE::log trace => "revoke.sh: %s", $sh_file;
     AE::log trace => &readfile( $sh_file );
@@ -2090,7 +2081,7 @@ Vitaliy V. Tokarev E<lt>vitaliy.tokarev@gmail.comE<gt>
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-2015, gh0stwizard
+(c) 2015-2016, Vitaliy V. Tokarev
 
 This is free software; you can redistribute it and/or modify it
 under the same terms as the Perl 5 programming language system itself.
