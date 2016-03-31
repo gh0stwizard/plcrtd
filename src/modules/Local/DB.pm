@@ -2,17 +2,19 @@ package Local::DB;
 
 use strict;
 use common::sense;
-use AnyEvent;
+use DBI qw (:sql_types);
 use Local::DB::SQLite;
 use Local::Data::JSON;
-use Data::Dumper;
 
 require Exporter;
 our @ISA = qw (Exporter);
 our $VERSION = '0.01'; $VERSION = eval "$VERSION";
 
 
-my @QUERIES =
+# SELECT Queries
+sub S_LIST_KEYS()     { 0 };
+
+my @S_QUERIES =
   (
     q{SELECT
         pk.id,
@@ -29,16 +31,31 @@ my @QUERIES =
   )
 ;
 
-sub LISTKEYS() { 0 };
+
+# INSERT Queries
+sub I_CREATE_KEY()    { 0 };
+
+my @I_QUERIES =
+  (
+    q{INSERT INTO private_keys
+        (name, key, type_id, cypher_id)
+      VALUES
+        (?, ?, ?, ?)},
+  )
+;
+
+
+# UPDATE Queries
+#sub U_
 
 
 sub list_keys {
     my @data;
     my $dbh = &Local::DB::SQLite::get_handle ();
-    my $sth = $dbh->prepare ($QUERIES[ &LISTKEYS() ]);
+    my $sth = $dbh->prepare ($S_QUERIES[ &S_LIST_KEYS() ]);
     $sth->execute ();
     my %row;
-    $sth->bind_columns( \( @row{ @{$sth->{NAME_lc} } } ));
+    $sth->bind_columns( \( @row{ @{ $sth->{'NAME_lc'} } } ));
     while ($sth->fetch ()) {
       push @data, {
         'id'        => $row{ 'id' },
@@ -54,6 +71,29 @@ sub list_keys {
       'data' => \@data,
       'rows' => $sth->rows(),
     ;
+}
+
+
+sub create_key($$) {
+    my ( $params, $key ) = @_;
+
+
+    my $name        = $params->{ 'name' };
+    my $type        = $params->{ 'type' };
+    my $size        = int ($params->{ 'bits' } || 0);
+    my $cipher_id   = $params->{ 'cipher' };
+    my $passwd      = $params->{ 'passwd' };
+
+    my $dbh = &Local::DB::SQLite::get_handle ();
+    my $sth = $dbh->prepare ($I_QUERIES[ &I_CREATE_KEY() ]);
+
+    # (name, key, type_id, cypher_id)
+    $sth->bind_param(1, $name, SQL_VARCHAR);
+    $sth->bind_param(2, $key, SQL_VARCHAR);
+    $sth->bind_param(3, $type_id, SQL_INTEGER);
+    $sth->bind_param(4, $cypher_id, SQL_INTEGER);
+
+    $sth->execute();
 }
 
 

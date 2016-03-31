@@ -180,15 +180,24 @@ sub process_request($$$$) {
     for sort keys %{ $params };
 
   for ( $action ) {
+    # return a list of all private keys
+    when ( 'ListKeys' ) {
+      &_send ($R => &Local::DB::list_keys());
+    }  
+  
     # generates new private key and stores into user database
-    when ( 'genkey' ) {
-      my $name = $params->{ 'name' } || '';
-      my $type = $params->{ 'type' } || 'RSA';
-      my $bits = int( $params->{ 'bits' } || 0 );
-      my $cipher = $params->{ 'cipher' } || '';
-      my $passwd = $params->{ 'passwd' } || '';
+    when ( 'CreateKey' ) {
+      my $key = &_genkey ($params);
 
-      &genkey( $R, $name, $type, $bits, $cipher, $passwd );
+      &_send ($R => &Local::DB::create_key ($params, $key));
+
+#      my $name = $params->{ 'name' } || '';
+#      my $type = $params->{ 'type' } || 'RSA';
+#      my $bits = int( $params->{ 'bits' } || 0 );
+#      my $cipher = $params->{ 'cipher' } || '';
+#      my $passwd = $params->{ 'passwd' } || '';
+#
+#      &genkey( $R, $name, $type, $bits, $cipher, $passwd );
     }
 
     # removes a private key from an user database
@@ -198,10 +207,7 @@ sub process_request($$$$) {
       &remove_key( $R, $name );
     }
 
-    # return a list of all private keys
-    when ( 'ListKeys' ) {
-      &_send ($R => &Local::DB::list_keys());
-    }
+
 
     # removes all entries for private keys from an user database
     when ( 'RemoveAllKeys' ) {
@@ -410,6 +416,10 @@ sub _send {
   $w->close ();
   
   return;
+}
+
+sub _genkey {
+    
 }
 
 

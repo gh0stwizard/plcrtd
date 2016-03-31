@@ -8,8 +8,7 @@ $( function() {
         'Internal error',
         'Invalid name',
         'Duplicate entry',
-        'Entry not found',
-        'Missing a database'
+        'Entry not found'
       ],
       sizeOptions = [ 1024, 2048, 4096 ],
       pkOptions = [ 'RSA' ], /* DSA is not implemented on server side yet */
@@ -40,7 +39,10 @@ $( function() {
 
 
   function Database ( options ) {
-    this.defaults = { name: 'db1', desc: '' };
+    this.defaults = {
+      name: 'db1',
+      desc: ''
+    };
     options = $.extend( { }, this.defaults, options  );
     
     this.Name = ko.observable( options.name );
@@ -284,10 +286,8 @@ $( function() {
 
 
     /* Header */
-
     self.chapters = [
       'About',
-      'DB',
       'Private keys',
       'CSR',
       'Certificates',
@@ -298,191 +298,10 @@ $( function() {
 
 
     /*  Behaviours: chapters  */
-
     self.selectChapter = function ( chapter ) { location.hash = chapter }
 
 
-    /*  Behaviours: Configuration  */
-
-    self.cfg = new Page( {
-      CreateItem : function () { return new Database(); },
-      Create : function () {
-        var iam = this,
-            db = iam.Item();
-
-        clearError();
-
-        postJSON( {
-          action: 'CreateDB',
-          name: db.Name(),
-          desc: db.Description()
-        },
-        function ( response ) {
-          if ( 'name' in response ) {
-            iam.List.push( db );
-            iam.List.sort( sortByName );
-            iam.CreateToggle();
-          } else {
-            riseError( response.err );
-          }
-        } );
-      },
-      Remove : function ( entry ) {
-        var iam = this,
-            name = entry.Name();
-
-        clearError();
-
-        postJSON( {
-          action: 'RemoveDB',
-          name: name
-        },
-        function ( response ) {
-          if ( 'name' in response ) {
-            if ( iam.Settings().Name() === name ) {
-              iam.Settings( null );
-            }
-
-            iam.List.remove( entry );
-          } else {
-            riseError( response.err );
-          }
-        } );
-      },
-      Wipe : function ( ) {
-        var iam = this;
-
-        clearError();
-
-        postJSON( { action: 'RemoveAllDBs' }, function ( response ) {
-          if ( 'deleted' in response ) {
-            iam.Settings( null );
-            iam.List.removeAll();
-            iam.WipeToggle();
-          } else {
-            riseError( response.err );
-          }
-        } );
-      }
-    } );
-
-    function ActivateDB ( db ) {
-      var iam = this,
-          name = db.Name();
-
-      clearError();
-
-      postJSON( {
-        action: 'SwitchDB',
-        name: name
-      },
-      function ( response ) {
-        if ( 'name' in response ) {
-          var dbs = iam.List(),
-              len = dbs.length;
-
-          /* mark all as an inactive */
-          for ( var i = 0; i < len; i++ ) {
-            dbs[i].isActive( false );
-          }
-
-          /* activate choosen db */
-          db.isActive( true );
-
-          /* retrieve settings */
-          iam.Settings( db );
-        } else {
-          riseError( response.err );
-        }
-      } );
-
-      return false;
-    }
-
-    function SetupDB ( ) {
-      var iam = this,
-          db = iam.Settings(),
-          name = db.Name(),
-          desc = db.Description();
-
-      clearError();
-
-      postJSON( {
-        action: 'UpdateDB',
-        name: name,
-        desc: desc
-      },
-      function ( response ) {
-        if ( 'err' in response ) {
-          riseError( response.err );
-        }
-      } );
-
-      return false;
-    }
-
-    function ListDBs ( ) {
-      var iam = this;
-
-      clearError();
-      iam.List.removeAll();
-
-      postJSON( { action: 'ListDBs' }, function ( response ) {
-        if ( 'dbs' in response ) {
-          var list = response.dbs,
-              total = list.length;
-
-          for ( var i = 0; i < total; i++ ) {
-            var db = list[i];
-            iam.List.push( new Database( { 
-              name: db.name,
-              desc: db.desc
-            } ) );
-          }
-
-          iam.List.sort( sortByName );
-          iam.Current();
-        }
-      } );
-    }
-
-    function CurrentDB ( ) {
-      var iam = this;
-
-      clearError();
-
-      postJSON( { action: 'CurrentDB' }, function ( response ) {
-        if ( 'name' in response ) {
-          var dbs = iam.List(),
-              len = dbs.length,
-              name = response.name;
-
-          for ( var i = 0; i < len; i++ ) {
-            var db = dbs[i];
-
-            if ( db.Name() === name ) {
-              db.isActive( true );
-              iam.Settings( db );
-              break;
-            }
-          }
-        }
-      } );
-
-      return false;
-    }
-
-    $.extend( self.cfg, {
-      Activate: ActivateDB.bind( self.cfg ),
-      Settings: ko.observable(),
-      Setup: SetupDB.bind( self.cfg ),
-      ListDBs: ListDBs.bind( self.cfg ),
-      Current: CurrentDB.bind( self.cfg )
-    } );
-
-
     /*  Behaviours: Private Keys  */
-
     self.pk = new Page( {
       CreateItem : function () { return new PrivateKey(); },
       Create : function () {
@@ -496,23 +315,26 @@ $( function() {
 
         clearError();
 
-        postJSON( { 
-          action: 'genkey',
-          name: name,
-          type: type,
-          bits: size,
-          cipher: cipher,
-          passwd: passwd
-        },
-        function ( response ) {
-          if ( 'name' in response ) {
-            iam.List.push( key );
-            iam.List.sort( sortByName );
-            iam.CreateToggle();
-          } else {
-            riseError( response.err, response.msg );
+        postJSON
+        (
+          {
+            action: 'CreateKey',
+            name:   name,
+            type:   type,
+            bits:   size,
+            cipher: cipher,
+            passwd: passwd
+          },
+          function ( response ) {
+            if ( 'data' in response ) {
+              iam.List.push( key );
+              iam.List.sort( sortByName );
+              iam.CreateToggle();
+            } else {
+              riseError( response.err, response.msg );
+            }
           }
-        } );
+        );
       },
       Remove : function ( entry ) {
         var iam = this,
@@ -1262,13 +1084,6 @@ $( function() {
       cleanAll();
 
       switch ( action ) {
-        case 'DB':
-          self.onConfigure( true );
-          self.cfg.onTable( true );
-          self.cfg.onCreate( false );
-          self.cfg.onWipe( false );
-          self.cfg.ListDBs();
-          break;
         case 'Private keys':
           self.onPrivateKeys( true );
           self.pk.onTable( true );
