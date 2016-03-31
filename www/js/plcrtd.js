@@ -52,26 +52,29 @@ $( function() {
 
   function PrivateKey ( options ) {
     this.defaults = {
-      name:   'key1',
-      type:   'RSA',
-      size:   2048,
-      cipher: 'AES256',
-      passwd: null
+      id:       null,
+      name:     'key1',
+      type:     'RSA',
+      size:     2048,
+      cipher:   'AES256',
+      passwd:   null
     };
     options = $.extend( { }, this.defaults, options );
 
-    this.Name = ko.observable( options.name );
-    this.Type = ko.observable( options.type );
-    this.Size = ko.observable( options.size );
-    this.Cipher = ko.observable( options.cipher );
+    this.Name     = ko.observable( options.name );
+    this.Type     = ko.observable( options.type );
+    this.Size     = ko.observable( options.size );
+    this.Cipher   = ko.observable( options.cipher );
     this.Password = ko.observable( options.passwd );
+    this.ID       = ko.observable( options.id );
 
-    this.Encrypted = ko.pureComputed( {
-      owner: this,
-      read: function ( ) {
-        return ( this.Password() ) ? 'Yes' : 'No';
-      }
-    } );
+    this.Encrypted = ko.pureComputed
+    ({
+        owner: this,
+        read: function ( ) {
+          return ( this.Password() ) ? 'Yes' : 'No';
+        }
+    });
   }
 
 
@@ -551,20 +554,26 @@ $( function() {
       clearError();
       iam.List.removeAll();
 
-      postJSON( { action: 'ListKeys' }, function ( response ) {
-        if ( 'keys' in response ) {
-          var ary = response.keys,
-              len = ary.length;
+      postJSON
+      (
+        {
+          action: 'ListKeys'
+        },
+        function ( response ) {
+          if ( 'data' in response ) {
+            var ary = response.data,
+                len = ary.length;
 
-          for ( var i = 0; i < len; i++ ) {
-            iam.List.push( new PrivateKey( ary[i] ) );
+            for ( var i = 0; i < len; i++ ) {
+              iam.List.push( new PrivateKey( ary[i] ) );
+            }
+
+            iam.List.sort( sortByName );
+          } else {
+            riseError( response.err );
           }
-
-          iam.List.sort( sortByName );
-        } else {
-          riseError( response.err );
         }
-      } );
+      );
     }
 
     $.extend( self.pk, {

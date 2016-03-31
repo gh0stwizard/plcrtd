@@ -28,9 +28,9 @@ use HTML::Entities ();
 use Encode qw( decode_utf8 );
 use File::Spec::Functions qw( catdir catfile );
 use Cwd qw( realpath );
-use Local::DB::UnQLite;
 use Local::OpenSSL::Conf;
 use Local::OpenSSL::Script::Revoke;
+use Local::DB;
 
 
 # body checks
@@ -95,7 +95,7 @@ sub app {
         $R,
         @$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) },
       )
-    : _405( $R )
+    : _405 ($R)
   ;
 
   return;
@@ -180,51 +180,6 @@ sub process_request($$$$) {
     for sort keys %{ $params };
 
   for ( $action ) {
-    # returns all database entries
-    when ( 'ListDBs' ) {
-      &list_dbs( $R );
-    }
-
-    # creates new database
-    when ( 'CreateDB' ) {
-      my $db_name = $params->{ 'name' } || '';
-      my $db_desc = $params->{ 'desc' } || '';
-
-      &create_db( $R, $db_name, $db_desc );
-    }
-
-    # removes a database and related files
-    when ( 'RemoveDB' ) {
-      my $db_name = $params->{ 'name' } || '';
-
-      &remove_db( $R, $db_name );
-    }
-
-    # returns current database
-    when ( 'SwitchDB' ) {
-      my $db_name = $params->{ 'name' } || '';
-
-      &switch_db( $R, $db_name );
-    }
-
-    # updates database settings
-    when ( 'UpdateDB' ) {
-      my $db_name = $params->{ 'name' } || '';
-      my $db_desc = $params->{ 'desc' } || '';
-
-      &update_db( $R, $db_name, $db_desc );
-    }
-
-    # removes all user database entries
-    when ( 'RemoveAllDBs' ) {
-      &remove_all_dbs( $R );
-    }
-
-    # returns a name of current user database
-    when ( 'CurrentDB' ) {
-      &current_db( $R );
-    }
-
     # generates new private key and stores into user database
     when ( 'genkey' ) {
       my $name = $params->{ 'name' } || '';
@@ -245,7 +200,7 @@ sub process_request($$$$) {
 
     # return a list of all private keys
     when ( 'ListKeys' ) {
-      &list_keys( $R );
+      &_send ($R => &Local::DB::list_keys());
     }
 
     # removes all entries for private keys from an user database
@@ -447,12 +402,22 @@ The target database name was not found.
 
 =cut
 
+sub _send {
+  my ( $r, $data ) = @_;
+
+  my $w = $r->start_streaming (200, \@HEADER_JSON);
+  $w->write ($data->pop ());
+  $w->close ();
+  
+  return;
+}
+
 
 sub send_error($$;$) {
   my ( $R, $code, $msg ) = @_;
 
 
-  my %data = ( err => $code );
+  my %data = ( 'err' => $code );
   $data{ 'msg' } = decode_utf8 ($msg) if ( $msg );
 
   my $w = $R->start_streaming (200, \@HEADER_JSON);
@@ -475,9 +440,9 @@ sub send_response($%) {
   my ( $R, %data ) = @_;
 
 
-  my $w = $R->start_streaming( 200, \@HEADER_JSON );
-  $w->write( encode_json( \%data ) );
-  $w->close();
+  my $w = $R->start_streaming (200, \@HEADER_JSON);
+  $w->write (encode_json (\%data));
+  $w->close ();
 
   return;
 }

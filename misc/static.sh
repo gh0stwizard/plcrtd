@@ -53,6 +53,8 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MTemplate \
 -MTemplate::Filters \
 -MTemplate::Stash::XS \
+-MDBI \
+-MDBD::SQLite \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \
@@ -63,4 +65,7 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 --add "../src/modules/Local/OpenSSL/Script/Revoke.pm Local/OpenSSL/Script/Revoke.pm" \
 --add "../src/modules/Local/Server/Hooks.pm Local/Server/Hooks.pm" \
 --add "../src/modules/Local/Server/Settings.pm Local/Server/Settings.pm" \
+--add "../src/modules/Local/DB/SQLite.pm Local/DB/SQLite.pm" \
+--add "../src/modules/Local/DB.pm Local/DB.pm" \
+--add "../src/modules/Local/Data/JSON.pm Local/Data/JSON.pm" \
 $@

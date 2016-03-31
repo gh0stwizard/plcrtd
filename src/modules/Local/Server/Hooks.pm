@@ -1,12 +1,14 @@
 package Local::Server::Hooks;
 
 use strict;
+use common::sense;
+use Local::Server::Settings;
+use Local::DB::SQLite;
+
 require Exporter;
 our @ISA = qw (Exporter);
-our $VERSION = '0.01'; $VERSION = eval "$VERSION";
+our $VERSION = '0.02'; $VERSION = eval "$VERSION";
 
-use Local::DB::UnQLite;
-use Local::Server::Settings;
 
 sub new {
     bless {}, shift;
@@ -14,7 +16,8 @@ sub new {
 
 sub on_start {
     my $setup = Local::Server::Settings->new();
-    &Local::DB::UnQLite::set_db_home ($setup->get ('WORKDIR'));
+    &Local::DB::SQLite::set_db_home ($setup->get ('WORKDIR'));
+    &Local::DB::SQLite::db_open();
 }
 
 sub on_before_start {
@@ -22,15 +25,15 @@ sub on_before_start {
 }
 
 sub on_after_start {
-
+    &Local::DB::SQLite::db_check();
 }
 
 sub on_reload {
-    &Local::DB::UnQLite::closealldb();
+    &Local::DB::SQLite::db_close();
 }
 
 sub on_shutdown {
-    &Local::DB::UnQLite::closealldb();
+    &Local::DB::SQLite::db_close();
 }
 
 
