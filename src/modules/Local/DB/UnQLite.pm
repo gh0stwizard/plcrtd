@@ -1,10 +1,12 @@
 package Local::DB::UnQLite;
 
-# 2015, Vitaliy V. Tokarev aka gh0stwizard vitaliy.tokarev@gmail.com
+# (c) 2015-2016, Vitaliy V. Tokarev aka gh0stwizard
 #
 # This is free software; you can redistribute it and/or modify it
 # under the same terms as the Perl 5 programming language system itself.
 
+
+=pod
 
 =encoding utf-8
 
@@ -39,7 +41,7 @@ use File::Spec::Functions qw( catfile canonpath );
 use JSON::XS qw( decode_json );
 
 
-our $VERSION = '1.007'; $VERSION = eval "$VERSION";
+our $VERSION = '1.008'; $VERSION = eval "$VERSION";
 
 
 =head1 FUNCTIONS
@@ -53,12 +55,17 @@ file name "<DB_HOME>/$name.db". Where is <DB_HOME> is
 value returned by function B<get_db_home>().
 
 A value $name should not contains any file extention.
-The file name extention is hardcoded and always equals
-to ".db".
+The file name extention may be changed via variable
+C<<< $Local::DB::UnQLite::EXTENTION >>> before using
+specified database, see notice about "caching" technique
+in DESCRIPTION section.
 
 The function calls C<die()> if an error has been occured.
 
 =cut
+
+
+my $EXTENTION = '.db';
 
 
 {
@@ -75,40 +82,40 @@ The function calls C<die()> if an error has been occured.
 
   sub initdb($) {
     my $name = shift || "none";
-    
+
     #
     # UnQLite <= 0.05 does not check file permissions
     # and does not throw errors about that.
     #
-    # We have to be sure that able to open (read, write) file.
+    # We have to be sure that able to open (read, write) a file.
     #
 
     my $db_home = &get_db_home();
-    my $db_file = catfile( $db_home, "${name}.db" );
+    my $db_file = catfile ($db_home, $name . $EXTENTION);
     my $db_flags = &UnQLite::UNQLITE_OPEN_READWRITE();
   
     if ( -e $db_file ) {
-      # file exists, check perms
+      # file exists, check permissions
       unless ( -r $db_file && -w $db_file && -o $db_file ) {
         die "Check permissions on $db_file: $!";
       }
     } else {
-      # file does not exists, try to create file
-      open ( my $fh, ">", $db_file )
+      # file does not exists, try to create a file
+      open (my $fh, ">", $db_file)
         or die "Failed to open $db_file: $!";
-      close( $fh )
+      close ($fh)
         or die "Failed to close $db_file: $!";
-      unless ( -r $db_file && -w $db_file && -o $db_file ) {
+      unless (-r $db_file && -w $db_file && -o $db_file) {
         die "Check permissions on $db_file: $!";
       }
-      unlink( $db_file )
+      unlink ($db_file)
         or die "Failed to remove $db_file: $!";
 
-      # auto create database file
+      # auto-create the database file
       $db_flags |= &UnQLite::UNQLITE_OPEN_CREATE();
     }
-  
-    $DBS{ $name } = UnQLite->open( $db_file, $db_flags );
+
+    $DBS{ $name } = UnQLite->open ($db_file, $db_flags);
     return $DBS{ $name };
   }
 
@@ -160,7 +167,7 @@ Returns true on success, otherwise -- false.
 
     if ( defined $name ) {
       my $db_home = &get_db_home();
-      my $db_file = catfile( $db_home, "${name}.db" );
+      my $db_file = catfile ($db_home, $name . $EXTENTION);
       return unlink( $db_file );
     }
 
@@ -568,11 +575,11 @@ Vitaliy V. Tokarev E<lt>vitaliy.tokarev@gmail.comE<gt>
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-2015, gh0stwizard
+(c) 2015-2016, Vitaliy V. Tokarev
 
 This is free software; you can redistribute it and/or modify it
 under the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-scalar "Cold Chord (Human Element Remix)";
+scalar "Vertex - Cold Chord (Human Element Remix)";
