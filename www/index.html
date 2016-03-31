@@ -62,7 +62,7 @@
          title="plcrtd on GitHub">here</a>.</p>
   </div>
 
-  <!-- Configuration Page //-->
+  <!-- Database Configuration Page //-->
   <div class="Page" data-bind="visible: onConfigure()">
     <h1>Configuration management</h1>
     <h2>Databases</h2>
@@ -118,8 +118,9 @@
         </tbody>
       </table>
     </div>
-    <h2 data-bind="visible: cfg.Settings">Database settings</h2>
-    <div class="embedView" data-bind="visible: cfg.Settings">
+
+    <div class="embedView" data-bind="visible: cfg.onSetup() && cfg.Settings">
+      <h2>Database settings</h2>
       <form id="setupForm" data-bind="submit: cfg.Setup">
       <table class="hTable">
         <tbody data-bind="with: cfg.Settings">

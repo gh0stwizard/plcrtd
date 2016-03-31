@@ -2,7 +2,7 @@ $( function() {
   var suffix = '/plcrtd',
       addr = window.location.protocol + '//' + window.location.host
       errors = [
-        'Connection error',
+        'No error',
         'Bad request',
         'Not implemented',
         'Internal error',
@@ -184,6 +184,7 @@ $( function() {
     this.onCreate = ko.observable( false );
     this.onWipe = ko.observable( false );
     this.onTable = ko.observable( false );
+    this.onSetup = ko.observable( false );
     this.List = ko.observableArray( [ ] );
     this.Item = ko.observable();
 
@@ -224,10 +225,12 @@ $( function() {
       if ( this.onCreate() ) {
         this.onCreate( false );
         this.onTable( true );
+        this.onSetup( true );
         this.Item( null );
       } else {
         this.onCreate( true );
         this.onTable( false );
+        this.onSetup( false );
         this.Item( this.CreateItem() );
       }
 
@@ -242,9 +245,11 @@ $( function() {
       if ( this.onWipe() ) {
         this.onWipe( false );
         this.onTable( true );
+        this.onSetup( true );
       } else {
         this.onWipe( true );
         this.onTable( false );
+        this.onSetup( false );
       }
 
       return false;

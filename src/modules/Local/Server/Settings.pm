@@ -31,7 +31,7 @@ my %DEFAULT_SETTINGS =
 
         $INSTANCE = bless {}, shift;
         $KEY = uc "$key";
-        $INSTANCE->_update();
+        $INSTANCE->update();
     }
 
     sub update {

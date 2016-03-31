@@ -2,3 +2,5 @@
 * finish "deploy" functionality
 * finish "export" functionality
 * use Config::Augeas to configure openssl utility (ah,ah, good? :]
+* import CSR, PKEY, CRT, CRL? functionality
+* "Subject" generator (something like nice UI, ah? =)

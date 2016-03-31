@@ -1,7 +1,7 @@
 #!/bin/sh
 
 TARGET=bin/plcrtd
-OPTIONS="--verbose -W /tmp -D /tmp/plcrtd-deploy"
+OPTIONS="--verbose -W /tmp/plcrtd -D /tmp/plcrtd-deploy"
 STRIP=strip
 PERL=perl
 FIND=find
