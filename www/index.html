@@ -62,7 +62,7 @@
          title="plcrtd on GitHub">here</a>.</p>
   </div>
 
-  <!-- Database Configuration Page //-->
+  <!-- Database Configuration Page
   <div class="Page" data-bind="visible: onConfigure()">
     <h1>Configuration management</h1>
     <h2>Databases</h2>
@@ -111,9 +111,14 @@
           <tr>
             <td class="w20" data-bind="text: Name"></td>
             <td class="w70" data-bind="text: Description"></td>
-            <td class="w05"><a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
-                   title="Activate">Activate</a></td>
-            <td class="w05"><a href="#" data-bind="click: $root.cfg.Remove" title="Remove">Remove</a></td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.cfg.Activate, visible: ! isActive()"
+                          title="Activate">Activate</a>
+            </td>
+            <td class="w05">
+              <a href="#" data-bind="click: $root.cfg.Remove"
+                          title="Remove">Remove</a>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -143,6 +148,7 @@
       </form>
     </div>
   </div>
+  //-->
 
   <!-- Private Keys Page //-->
   <div class="Page" data-bind="visible: onPrivateKeys()">

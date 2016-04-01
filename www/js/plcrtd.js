@@ -305,13 +305,13 @@ $( function() {
     self.pk = new Page( {
       CreateItem : function () { return new PrivateKey(); },
       Create : function () {
-        var iam = this,
-            key = iam.Item(),
-            name = key.Name(),
-            type = key.Type(),
-            size = key.Size(),
-            cipher = key.Cipher(),
-            passwd = key.Password();
+        var iam     = this,
+            key     = iam.Item(),
+            name    = key.Name(),
+            type    = key.Type(),
+            size    = key.Size(),
+            cipher  = key.Cipher(),
+            passwd  = key.Password();
 
         clearError();
 
@@ -1020,7 +1020,7 @@ $( function() {
 
 
     function clearData ( ) {
-      self.cfg.Settings( null );
+/*      self.cfg.Settings( null );*/
     }
 
 
@@ -1031,8 +1031,8 @@ $( function() {
         self.errorDescription( arguments[1] );
       }
 
-      /* cleanup */
-      self.cfg.Settings( null );
+      /* cleanup 
+      self.cfg.Settings( null );*/
 
       return false;
     }
