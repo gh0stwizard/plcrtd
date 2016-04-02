@@ -3,7 +3,7 @@ package Local::Server::Settings;
 use strict;
 require Exporter;
 our @ISA = qw (Exporter);
-our $VERSION = '0.01'; $VERSION = eval "$VERSION";
+our $VERSION = '0.02'; $VERSION = eval "$VERSION";
 
 use Socket ();
 use Env;
@@ -17,6 +17,9 @@ my %DEFAULT_SETTINGS =
     'LOGFILE'     => '',
     'WORKDIR'     => '.',
     'DEPLOY_DIR'  => '.',
+    'MAXPROC'     => 4, # max. number of forked processes
+    'MAXLOAD'     => 1, # max. number of queued queries per worker process
+    'MAXIDLE'     => 4, # max. number of idle workers
   )
 ;
 
@@ -29,7 +32,7 @@ my %DEFAULT_SETTINGS =
     
         return $INSTANCE if $INSTANCE;
 
-        $INSTANCE = bless {}, shift;
+        $INSTANCE = bless {}, $class;
         $KEY = uc "$key";
         $INSTANCE->update();
     }

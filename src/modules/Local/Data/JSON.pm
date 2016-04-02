@@ -7,21 +7,27 @@ use JSON::XS qw (encode_json decode_json);
 use Encode ();
 use Data::Dumper;
 
+require Exporter;
+our @ISA = qw (Exporter);
+our $VERSION = '0.01'; $VERSION = eval "$VERSION";
+
 
 sub new {
     my ( $class, %args ) = @_;
 
+
     return bless
       [
         $args{ 'data' },
-        $args{ 'rows' },
-        $args{ 'errmsg' },
+        $args{ 'err' } // 0,
+        $args{ 'msg' },
       ],
       $class
     ;
 }
 
-
+# TODO
+# put stuff into a separated module
 sub NO_ERROR()          { 0 };
 sub BAD_REQUEST()       { 1 };
 sub NOT_IMPLEMENTED()   { 2 };
@@ -31,17 +37,24 @@ sub DUPLICATE_ENTRY()   { 5 };
 sub ENTRY_NOT_FOUND()   { 6 };
 
 
+sub DATA()      { 0 };
+sub ERRNO()     { 1 };
+sub MESSAGE()   { 2 };
+
 {
-  my %error = ( 'errno' => &INTERNAL_ERROR() );
-  my %payload = ( 'data' => undef );
+  my %error;
+  my %payload;
 
   sub pop {
-    if ( $_[0]->[1] < 0 ) {
+    my ( $self ) = @_;
+
+
+    if ( $error{ 'err' } = $self->[&ERRNO()] ) {
+      $error{ 'msg' } = $self->[&MESSAGE()];
       return encode_json (\%error);
     }
 
-    $payload{ 'data' } = $_[0]->[0] || {};
-    AE::log debug => Dumper (\%payload);
+    $payload{ 'data' } = $self->[ &DATA() ] || {};
     return encode_json (\%payload);
   }
 }

@@ -52,25 +52,27 @@ my @I_QUERIES =
 sub list_keys {
     my @data;
     my $dbh = &Local::DB::SQLite::get_handle ();
-    my $sth = $dbh->prepare ($S_QUERIES[ &S_LIST_KEYS() ]);
+    my $qry = $S_QUERIES[ &S_LIST_KEYS() ];
+    my $sth = $dbh->prepare ($qry);
     $sth->execute ();
+    my $rows = $sth->rows();
+    AE::log debug => "%s\n  rows: %d", $qry, $rows;
     my %row;
     $sth->bind_columns( \( @row{ @{ $sth->{'NAME_lc'} } } ));
     while ($sth->fetch ()) {
-      push @data, {
-        'id'        => $row{ 'id' },
-        'name'      => $row{ 'name' },
-        'type'      => $row{ 'type' },
-        'size'      => $row{ 'size' },
-        'cypher'    => $row{ 'cypher' },
-        'passwd'    => $row{ 'passwd' },
-      };
+      push @data,
+        {
+          'id'        => $row{ 'id' },
+          'name'      => $row{ 'name' },
+          'type'      => $row{ 'type' },
+          'size'      => $row{ 'size' },
+          'cypher'    => $row{ 'cypher' },
+          'passwd'    => $row{ 'passwd' },
+        }
+      ;
     }
 
-    return new Local::Data::JSON
-      'data' => \@data,
-      'rows' => $sth->rows(),
-    ;
+    return Local::Data::JSON->new ('data' => \@data);
 }
 
 
@@ -90,10 +92,12 @@ sub create_key($$) {
     # (name, key, type_id, cypher_id)
     $sth->bind_param(1, $name, SQL_VARCHAR);
     $sth->bind_param(2, $key, SQL_VARCHAR);
-    $sth->bind_param(3, $type_id, SQL_INTEGER);
-    $sth->bind_param(4, $cypher_id, SQL_INTEGER);
+    #$sth->bind_param(3, $type_id, SQL_INTEGER);
+    #$sth->bind_param(4, $cypher_id, SQL_INTEGER);
 
     $sth->execute();
+    
+    return Local::Data::JSON->new ('errno' => 2);
 }
 
 

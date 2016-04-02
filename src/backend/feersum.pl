@@ -1,11 +1,5 @@
 #!/usr/bin/perl
 
-# (c) 2015-2016, Vitaliy V. Tokarev aka gh0stwizard
-#
-# This is free software; you can redistribute it and/or modify it
-# under the same terms as the Perl 5 programming language system itself.
-
-
 =pod
 
 =encoding utf-8
@@ -17,33 +11,42 @@ The HTTP server written in Perl, powered by Feersum: B<plcrtd> project.
 =cut
 
 
+# Workaround for AnyEvent::Fork->new() + staticperl:
+#  Instead of using a Proc::FastSpawn::spawn() call
+#  just fork the current process.
+#
+# Creates a parent, template process; setup a value of $TEMPLATE
+use AnyEvent::Fork::Early;
+# new() method uses the $TEMPLATE variable;
+# see AnyEvent/Fork.pm "sub new" for details.
+my $PREFORK = AnyEvent::Fork->new();
+
+
+# the main (http server) program begins here
 use strict;
 use common::sense;
-use vars qw( $PROGRAM_NAME $VERSION );
+use vars qw| $PROGRAM_NAME $VERSION |;
 use EV;
 use Feersum;
 use AnyEvent;
 use AnyEvent::Socket;
 use AnyEvent::Handle;
-use AnyEvent::Util qw( run_cmd );
+use AnyEvent::Util qw| run_cmd |;
 use Socket ();
 use Local::Server::Settings;
 use Local::Server::Hooks;
 
 
-my $HOOKS;
-my $SETUP;
+# initialize the server configuration
+my $SETUP = Local::Server::Settings->new ($PROGRAM_NAME);
+# hooks may depends on the server configuration...
+my $HOOKS = Local::Server::Hooks->new ($PREFORK);
+
 
 {
-  # start the server asynchronously
+  # program entrypoint: start the server asynchronously
   my $t; $t = AE::timer 0, 0, sub {
     undef $t;
-
-    $HOOKS ||= Local::Server::Hooks->new ()
-      or AE::log fatal => "failed to create Local::Server::Hooks object";    
-    $SETUP ||= Local::Server::Settings->new ($PROGRAM_NAME)
-      or AE::log fatal => "failed to create Local::Server::Settings object";
-
     &start_server();
   };
 
@@ -86,13 +89,17 @@ my $SETUP;
 # ---------------------------------------------------------------------
 
 
-=head1 FUNCTIONS
+=head1 DESCRIPTION
+
+TBA
+
+=head2 FUNCTIONS
 
 =over 4
 
 =item B<start_server>()
 
-Start a server process.
+Start the server process.
 
 =cut
 
@@ -117,7 +124,7 @@ sub start_server() {
 
 =item B<shutdown_server>()
 
-Shutdown a server process.
+Shutdown the server process.
 
 =cut
 
@@ -148,6 +155,7 @@ sub reload_server() {
   AE::log note => "Server restarted, PID = %d", $$;
 }
 
+
 =item B<enable_syslog>()
 
 Enables syslog.
@@ -159,14 +167,8 @@ sub enable_syslog() {
   my $facility = &get_syslog_facility() || return;
 
   require Sys::Syslog;
-
-  &Sys::Syslog::openlog
-    (
-      $PROGRAM_NAME,
-      'ndelay,pid', # nodelay, include pid
-      $facility,
-    )
-  ;
+  # open log with options: nodelay, include pid
+  &Sys::Syslog::openlog ($PROGRAM_NAME, 'ndelay,pid', $facility);
 }
 
 
@@ -200,20 +202,22 @@ sub get_syslog_facility() {
 }
 
 
+{
+  my $Instance;
+  my $socket;
+
+
 =item B<start_httpd>()
 
 Starts Feersum server.
 
 =cut
 
-{
-  my $Instance;
-  my $socket;
 
   sub start_httpd() {
     $Instance ||= Feersum->endjinn ();
 
-    my ( $addr, $port ) = parse_listen ();
+    my ( $addr, $port ) = &parse_listen ();
     $socket = &create_socket ($addr, $port);
 
     if ( my $fd = fileno ($socket) ) {
@@ -372,7 +376,9 @@ sub create_socket($$) {
 
 =item ( $addr, $port ) = B<parse_listen>()
 
-Returns IP address $addr and port $port to listen.
+Returns IP address $addr and port $port to listen using a configuration
+information (currently, through environment variables).
+See L<Local::Server::Settings> for details.
 
 =cut
 
@@ -393,6 +399,9 @@ sub parse_listen() {
 Try to load an application for Feersum. Returns a
 reference to subroutine application. If the application unable
 to load returns a predefined subroutine with 500 HTTP code.
+
+The application supposed to be a casual Perl script, which returns
+the CODE reference. See L<Feersum> for details.
 
 =cut
 
@@ -423,7 +432,7 @@ sub load_app() {
 
 =item B<debug_settings()>
 
-Prints settings to output log.
+Prints the application settings to an output log.
 
 =cut
 
@@ -445,18 +454,19 @@ Creates a pidfile. If an error occurs stops the program.
 sub write_pidfile() {
   my $file = $SETUP->get ('PIDFILE') || return;
 
-  open( my $fh, ">", $file )
+  open (my $fh, ">", $file)
     or AE::log fatal => "open pidfile %s: %s", $file, $!;
-  syswrite( $fh, $$ )
+  syswrite ($fh, $$)
     or AE::log fatal => "write pidfile %s: %s", $file, $!;
-  close( $fh )
+  close ($fh)
     or AE::log fatal => "close pidfile %s: %s", $file, $!;
 }
 
 
 =item B<unlink_pidfile>()
 
-Removes a pidfile from a disk.
+Removes a pidfile from a disk. Returns a status code of the
+B<unlink>() function.
 
 =cut
 

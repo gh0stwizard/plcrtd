@@ -4,20 +4,25 @@ use strict;
 use common::sense;
 use Local::Server::Settings;
 use Local::DB::SQLite;
+use Local::Run;
 
 require Exporter;
 our @ISA = qw (Exporter);
-our $VERSION = '0.02'; $VERSION = eval "$VERSION";
+our $VERSION = '0.03'; $VERSION = eval "$VERSION";
 
 
 sub new {
-    bless {}, shift;
+    my ( $class, $prefork ) = @_;
+
+
+    return bless [ $prefork ], $class;
 }
 
 sub on_start {
     my $setup = Local::Server::Settings->new();
     &Local::DB::SQLite::set_db_home ($setup->get ('WORKDIR'));
     &Local::DB::SQLite::db_open();
+#    &Local::Run::create_pool ();
 }
 
 sub on_before_start {

@@ -19,6 +19,8 @@ fi
 [ -d ${BIN_DIR} ] || mkdir ${BIN_DIR} || exit 1
 
 ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
+-MConfig \
+-MConfig_heavy.pl \
 -Msort.pm \
 -Mfeature.pm \
 -Mvars \
@@ -47,7 +49,6 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MFeersum \
 -MHTTP::Body \
 -MHTML::Entities \
--MUnQLite \
 -MFile::Path \
 -MData::Dumper \
 -MTemplate \
@@ -55,17 +56,23 @@ ${SP_FILE} mkapp ${BIN_DIR}/$APPNAME --boot ${BOOT_FILE} \
 -MTemplate::Stash::XS \
 -MDBI \
 -MDBD::SQLite \
+-MIO::FDPass \
+-MProc::FastSpawn \
+-MAnyEvent::Fork \
+-MAnyEvent::Fork::RPC \
+-MAnyEvent::Fork::Pool \
 --strip ${STRIP} \
 --${LINKTYPE} \
 --usepacklists \
 --add "../src/app/feersum.pl app/feersum.pl" \
 --add "../src/backend/feersum.pl backend/feersum.pl" \
---add "../src/modules/Local/DB/UnQLite.pm Local/DB/UnQLite.pm" \
---add "../src/modules/Local/OpenSSL/Conf.pm Local/OpenSSL/Conf.pm" \
---add "../src/modules/Local/OpenSSL/Script/Revoke.pm Local/OpenSSL/Script/Revoke.pm" \
 --add "../src/modules/Local/Server/Hooks.pm Local/Server/Hooks.pm" \
 --add "../src/modules/Local/Server/Settings.pm Local/Server/Settings.pm" \
---add "../src/modules/Local/DB/SQLite.pm Local/DB/SQLite.pm" \
 --add "../src/modules/Local/DB.pm Local/DB.pm" \
+--add "../src/modules/Local/DB/SQLite.pm Local/DB/SQLite.pm" \
+--add "../src/modules/Local/OpenSSL/Command.pm Local/OpenSSL/Command.pm" \
 --add "../src/modules/Local/Data/JSON.pm Local/Data/JSON.pm" \
+--add "../src/modules/Local/Run.pm Local/Run.pm" \
+--add "../src/modules/Local/OpenSSL/Conf.pm Local/OpenSSL/Conf.pm" \
+--add "../src/modules/Local/OpenSSL/Script/Revoke.pm Local/OpenSSL/Script/Revoke.pm" \
 $@

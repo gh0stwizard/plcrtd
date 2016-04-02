@@ -31,6 +31,7 @@ use Cwd qw( realpath );
 use Local::OpenSSL::Conf;
 use Local::OpenSSL::Script::Revoke;
 use Local::DB;
+use Local::Run;
 
 
 # body checks
@@ -88,16 +89,185 @@ sub app {
 
 
   my $env = $R->env();
+  my $params_h = 
+    &get_params (@$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) })
+      or return &send_error ($R, &BAD_REQUEST ());
 
-  $env->{ 'REQUEST_METHOD' } eq 'POST'
-    ? &process_request
-      (
-        $R,
-        @$env{ qw( psgi.input CONTENT_LENGTH CONTENT_TYPE ) },
-      )
-    : _405 ($R)
-  ;
+  my $action = $params_h->{ 'action' } // '<undefined>';
 
+  AE::log trace => $action;
+  AE::log trace => "  %s = %s", $_, $params_h->{ $_ }
+    for sort keys %$params_h;
+
+  for ( $action ) {
+    # return a list of all private keys
+    when ( 'ListKeys' ) {
+      &_send ($R => &Local::DB::list_keys ());
+    }
+
+    # generates new private key and stores into user database
+    when ( 'CreateKey' ) {
+      Local::Run::genkey ($params_h, sub {
+        &Scalar::Util::weaken (my $R = $R);
+        &_send ($R => @_);
+      });
+    }
+
+    # removes a private key from an user database
+#    when ( 'RemoveKey' ) {
+#      my $name = $params->{ 'name' } || '';
+#
+#      &remove_key( $R, $name );
+#    }
+
+    # removes all entries for private keys from an user database
+#    when ( 'RemoveAllKeys' ) {
+#      &remove_all_keys( $R );
+#    }
+
+    # generates new certificate requests and stores into user database
+#    when ( 'gencsr' ) {
+#      my $name = $params->{ 'name' } || '';
+#      my %options = map { +"$_" => $params->{ $_ } || '' } 
+#        qw ( keyname subject keypass digest );
+#
+#      &gencsr( $R, $name, %options );
+#    }
+
+    # list of certificate requests
+#    when ( 'ListCSRs' ) {
+#      &list_csrs( $R );
+#    }
+
+    # remove a certificate request
+#    when ( 'RemoveCSR' ) {
+#      my $csr_name = $params->{ 'name' } || '';
+#
+#      &remove_csr( $R, $csr_name );
+#    }
+
+    # removes all certificate requests from an user database
+#    when ( 'RemoveAllCSRs' ) {
+#      &remove_all_csrs( $R );
+#    }
+
+    # generates new certificate and stores into user database
+#    when ( 'gencrt' ) {
+#      my $name = $params->{ 'name' } || '';
+#      my $days = int( $params->{ 'days' } || 30 );
+#      my $desc = $params->{ 'desc' } || '';
+#      my $template = $params->{ 'template' } || 'Default';
+#
+#      my %settings = 
+#        (
+#          days      => $days,
+#          desc      => $desc,
+#          template  => $template,
+#        )
+#      ;
+#
+#      if ( defined ( my $csrname = $params->{ 'csrname' } ) ) {
+#        # self-signed certificate
+#        $settings{ 'csrname' }  = $csrname;
+#
+#        for ( qw( cacrt cakey cakeypw ) ) {
+#          $settings{ $_ } = $params->{ $_ } || '';
+#        }
+#
+#      } else {
+#        # common certificate
+#        for ( qw( keyname keypass subject digest ) ) {
+#          $settings{ $_ } = $params->{ $_ } || '';
+#        }
+#      }
+#
+#      &gencrt( $R, $name, %settings );
+#    }
+
+    # return a list of all certificates
+#    when ( 'ListCRTs' ) {
+#      &list_crts( $R );
+#    }
+
+    # remove a certificate
+#    when ( 'RemoveCRT' ) {
+#      my $crt_name = $params->{ 'name' } || '';
+#
+#      &remove_crt( $R, $crt_name );
+#    }
+
+    # removes all certificates from an user database
+#    when ( 'RemoveAllCRTs' ) {
+#      &remove_all_crts( $R );
+#    }
+
+    # inserts a new certificate revocation list record
+    # into an user database
+#    when ( 'CreateCRL' ) {
+#      my $crl_name = $params->{ 'name' } || '';
+#      my %options = map { +"$_" => $params->{ $_ } || '' } 
+#        qw( desc cacrt cakey );
+#
+#      &create_crl( $R, $crl_name, %options );
+#    }
+
+    # return a list of all certificate revocation lists
+#    when ( 'ListCRLs' ) {
+#      &list_crls( $R );
+#    }
+
+    # remove a certificate revocation list
+#    when ( 'RemoveCRL' ) {
+#      my $crl_name = $params->{ 'name' } || '';
+#
+#      &remove_crl( $R, $crl_name );
+#    }
+
+    # removes all certificate revocation lists 
+    # from an user database
+#    when ( 'RemoveAllCRLs' ) {
+#      &remove_all_crls( $R );
+#    }
+
+    # returns serial for certificate generation
+#    when ( 'GetSerial' ) {
+#      &get_serial( $R );
+#    }
+
+    # append a certificate to a CRL
+#    when ( 'AddToCRL' ) {
+#      my $crt_name = $params->{ 'name' } || '';
+#      my $crl_name = $params->{ 'crl'} || '';
+#
+#      &add_crt_to_crl( $R, $crt_name, $crl_name );
+#    }
+
+    # remove a certificate from a CRL
+#    when ( 'RemoveFromCRL' ) {
+#      my $crt_name = $params->{ 'name' } || '';
+#      my $crl_name = $params->{ 'crl'} || '';
+#
+#      &remove_crt_from_crl( $R, $crt_name, $crl_name );
+#    }
+
+    # deploy
+#    when ( 'Deploy' ) {
+#      my $name = $params->{ 'name' } || '';
+#      my $host = $params->{ 'host' } || 'localhost';
+#
+#      &deploy( $R, $name, $host );
+#    }
+
+    # export
+#    when ( 'Export' ) {
+#      &send_error( $R, &NOT_IMPLEMENTED() );
+#    }
+
+    # wrong input data
+    default {
+      &send_error ($R, &NOT_IMPLEMENTED ());
+    }
+  }
   return;
 }
 
@@ -160,210 +330,6 @@ sub get_params($$$) {
 }
 
 
-=item $json = B<process_request>( $feersum, $request, $length, $content_type )
-
-Process a request (POST).
-
-=cut
-
-
-sub process_request($$$$) {
-  my $R = shift;
-  my $params = &get_params (@_)
-    or return &send_error ($R, &BAD_REQUEST());
-
-
-  my $action = delete $params->{ 'action' } || '';
-
-  AE::log trace => $action;
-  AE::log trace => "  %s = %s", $_, $params->{ $_ }
-    for sort keys %{ $params };
-
-  for ( $action ) {
-    # return a list of all private keys
-    when ( 'ListKeys' ) {
-      &_send ($R => &Local::DB::list_keys());
-    }  
-  
-    # generates new private key and stores into user database
-    when ( 'CreateKey' ) {
-      my $key = &_genkey ($params);
-
-      &_send ($R => &Local::DB::create_key ($params, $key));
-
-#      my $name = $params->{ 'name' } || '';
-#      my $type = $params->{ 'type' } || 'RSA';
-#      my $bits = int( $params->{ 'bits' } || 0 );
-#      my $cipher = $params->{ 'cipher' } || '';
-#      my $passwd = $params->{ 'passwd' } || '';
-#
-#      &genkey( $R, $name, $type, $bits, $cipher, $passwd );
-    }
-
-    # removes a private key from an user database
-    when ( 'RemoveKey' ) {
-      my $name = $params->{ 'name' } || '';
-
-      &remove_key( $R, $name );
-    }
-
-
-
-    # removes all entries for private keys from an user database
-    when ( 'RemoveAllKeys' ) {
-      &remove_all_keys( $R );
-    }
-
-    # generates new certificate requests and stores into user database
-    when ( 'gencsr' ) {
-      my $name = $params->{ 'name' } || '';
-      my %options = map { +"$_" => $params->{ $_ } || '' } 
-        qw ( keyname subject keypass digest );
-
-      &gencsr( $R, $name, %options );
-    }
-
-    # list of certificate requests
-    when ( 'ListCSRs' ) {
-      &list_csrs( $R );
-    }
-
-    # remove a certificate request
-    when ( 'RemoveCSR' ) {
-      my $csr_name = $params->{ 'name' } || '';
-
-      &remove_csr( $R, $csr_name );
-    }
-
-    # removes all certificate requests from an user database
-    when ( 'RemoveAllCSRs' ) {
-      &remove_all_csrs( $R );
-    }
-
-    # generates new certificate and stores into user database
-    when ( 'gencrt' ) {
-      my $name = $params->{ 'name' } || '';
-      my $days = int( $params->{ 'days' } || 30 );
-      my $desc = $params->{ 'desc' } || '';
-      my $template = $params->{ 'template' } || 'Default';
-
-      my %settings = 
-        (
-          days      => $days,
-          desc      => $desc,
-          template  => $template,
-        )
-      ;
-
-      if ( defined ( my $csrname = $params->{ 'csrname' } ) ) {
-        # self-signed certificate
-        $settings{ 'csrname' }  = $csrname;
-
-        for ( qw( cacrt cakey cakeypw ) ) {
-          $settings{ $_ } = $params->{ $_ } || '';
-        }
-
-      } else {
-        # common certificate
-        for ( qw( keyname keypass subject digest ) ) {
-          $settings{ $_ } = $params->{ $_ } || '';
-        }
-      }
-
-      &gencrt( $R, $name, %settings );
-    }
-
-    # return a list of all certificates
-    when ( 'ListCRTs' ) {
-      &list_crts( $R );
-    }
-
-    # remove a certificate
-    when ( 'RemoveCRT' ) {
-      my $crt_name = $params->{ 'name' } || '';
-
-      &remove_crt( $R, $crt_name );
-    }
-
-    # removes all certificates from an user database
-    when ( 'RemoveAllCRTs' ) {
-      &remove_all_crts( $R );
-    }
-
-    # inserts a new certificate revocation list record
-    # into an user database
-    when ( 'CreateCRL' ) {
-      my $crl_name = $params->{ 'name' } || '';
-      my %options = map { +"$_" => $params->{ $_ } || '' } 
-        qw( desc cacrt cakey );
-
-      &create_crl( $R, $crl_name, %options );
-    }
-
-    # return a list of all certificate revocation lists
-    when ( 'ListCRLs' ) {
-      &list_crls( $R );
-    }
-
-    # remove a certificate revocation list
-    when ( 'RemoveCRL' ) {
-      my $crl_name = $params->{ 'name' } || '';
-
-      &remove_crl( $R, $crl_name );
-    }
-
-    # removes all certificate revocation lists 
-    # from an user database
-    when ( 'RemoveAllCRLs' ) {
-      &remove_all_crls( $R );
-    }
-
-    # returns serial for certificate generation
-    when ( 'GetSerial' ) {
-      &get_serial( $R );
-    }
-
-    # append a certificate to a CRL
-    when ( 'AddToCRL' ) {
-      my $crt_name = $params->{ 'name' } || '';
-      my $crl_name = $params->{ 'crl'} || '';
-
-      &add_crt_to_crl( $R, $crt_name, $crl_name );
-    }
-
-    # remove a certificate from a CRL
-    when ( 'RemoveFromCRL' ) {
-      my $crt_name = $params->{ 'name' } || '';
-      my $crl_name = $params->{ 'crl'} || '';
-
-      &remove_crt_from_crl( $R, $crt_name, $crl_name );
-    }
-
-
-    # deploy
-    when ( 'Deploy' ) {
-      my $name = $params->{ 'name' } || '';
-      my $host = $params->{ 'host' } || 'localhost';
-
-      &deploy( $R, $name, $host );
-    }
-
-    # export
-    when ( 'Export' ) {
-      &send_error( $R, &NOT_IMPLEMENTED() );
-    }
-
-
-    # wrong input data
-    default {
-      &send_error( $R, &NOT_IMPLEMENTED() );
-    }
-  }
-
-  return;
-}
-
-
 =item B<send_error>( $feersum, $error_code, [ $msg ] )
 
 Sends a response with an error code $error_code.
@@ -408,6 +374,7 @@ The target database name was not found.
 
 =cut
 
+
 sub _send {
   my ( $r, $data ) = @_;
 
@@ -417,11 +384,6 @@ sub _send {
   
   return;
 }
-
-sub _genkey {
-    
-}
-
 
 sub send_error($$;$) {
   my ( $R, $code, $msg ) = @_;
